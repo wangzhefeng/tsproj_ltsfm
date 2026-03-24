@@ -1,0 +1,15 @@
+[project]
+name = "tsproj-ltsfm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.3",
+    "pandas>=3.0.1",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.17.1",
+    "torch>=2.10.0",
+    "transformers>=5.3.0",
+]
