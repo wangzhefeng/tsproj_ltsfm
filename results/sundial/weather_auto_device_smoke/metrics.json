@@ -1,0 +1,16 @@
+{
+  "model_name": "Sundial",
+  "dataset_name": "weather",
+  "env": "local",
+  "device_config": "device=cpu,device_map=none,dtype=float32",
+  "model_checkpoint": "pretrain_models/sundial-base-128m",
+  "num_windows": 1,
+  "context_length": 256,
+  "prediction_length": 24,
+  "metrics": {
+    "mae": NaN,
+    "mse": NaN,
+    "rmse": NaN,
+    "mape": NaN
+  }
+}

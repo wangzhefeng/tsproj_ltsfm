@@ -1,0 +1,16 @@
+{
+  "model_name": "Time-MoE",
+  "dataset_name": "traffic",
+  "env": "local",
+  "device_config": "device=cpu,device_map=none,dtype=float32",
+  "model_checkpoint": "pretrain_models/TimeMoE-50M",
+  "num_windows": 1,
+  "context_length": 128,
+  "prediction_length": 24,
+  "metrics": {
+    "mae": NaN,
+    "mse": NaN,
+    "rmse": NaN,
+    "mape": NaN
+  }
+}

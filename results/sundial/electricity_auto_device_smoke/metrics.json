@@ -1,0 +1,16 @@
+{
+  "model_name": "Sundial",
+  "dataset_name": "electricity",
+  "env": "local",
+  "device_config": "device=cpu,device_map=none,dtype=float32",
+  "model_checkpoint": "pretrain_models/sundial-base-128m",
+  "num_windows": 1,
+  "context_length": 128,
+  "prediction_length": 24,
+  "metrics": {
+    "mae": 20.472779909769695,
+    "mse": 549.1070056051904,
+    "rmse": 23.433032360434925,
+    "mape": 0.7246168916244157
+  }
+}

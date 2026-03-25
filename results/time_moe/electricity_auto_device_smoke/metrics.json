@@ -1,0 +1,16 @@
+{
+  "model_name": "Time-MoE",
+  "dataset_name": "electricity",
+  "env": "local",
+  "device_config": "device=cpu,device_map=none,dtype=float32",
+  "model_checkpoint": "pretrain_models/TimeMoE-50M",
+  "num_windows": 1,
+  "context_length": 128,
+  "prediction_length": 24,
+  "metrics": {
+    "mae": 36.07024701436361,
+    "mse": 1831.0802054096177,
+    "rmse": 42.79112297439292,
+    "mape": 1.6020401258929866
+  }
+}

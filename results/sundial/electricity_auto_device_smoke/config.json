@@ -1,0 +1,19 @@
+{
+  "model_name": "Sundial",
+  "checkpoint": "pretrain_models/sundial-base-128m",
+  "data_path": "dataset/electricity.csv",
+  "dataset_name": "electricity",
+  "env": "local",
+  "device": "cpu",
+  "device_map": "none",
+  "dtype": "float32",
+  "context_length": 128,
+  "prediction_length": 24,
+  "batch_size": 1,
+  "num_samples": 4,
+  "stride": 4096,
+  "sample_limit": 1,
+  "target_col": "0",
+  "time_col": "date",
+  "zip_member": null
+}
