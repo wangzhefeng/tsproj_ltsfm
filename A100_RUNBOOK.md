@@ -58,6 +58,7 @@ PY
 bash scripts/time_moe/a100/50m/etth1_a100.sh
 bash scripts/time_moe/a100/200m/etth1_200m_a100.sh
 bash scripts/sundial/a100/etth1_a100.sh
+bash scripts/sundial/a100/etth1_probabilistic_a100.sh
 ```
 
 推荐顺序：
@@ -65,6 +66,7 @@ bash scripts/sundial/a100/etth1_a100.sh
 1. `TimeMoE-50M` 先作为稳定基线
 2. `TimeMoE-200M` 再做放大实验
 3. `Sundial-base-128m` 做对齐比较
+4. `Sundial` 概率预测脚本用于补分位数和预测区间结果
 
 ### 4.2 扩展数据
 

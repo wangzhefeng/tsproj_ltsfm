@@ -1,0 +1,7 @@
+{
+  "pinball_loss_q10": 0.33999198913574213,
+  "pinball_loss_q50": 0.7106572190920512,
+  "pinball_loss_q90": 0.4947039270401004,
+  "interval_coverage_q05_q95": 0.625,
+  "interval_width_q05_q95": 4.015699648857115
+}

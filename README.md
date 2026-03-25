@@ -80,6 +80,8 @@
 - Paper: [Sundial: A Family of Highly Capable Time Series Foundation Models](https://arxiv.org/abs/2502.00816)
 - GitHub: <https://github.com/thuml/Sundial>
 - Hugging Face: <https://huggingface.co/thuml/sundial-base-128m>
+- Official Example: [quickstart_zero_shot_generation.ipynb](https://github.com/thuml/Sundial/blob/main/examples/quickstart_zero_shot_generation.ipynb)
+- Talk Slides: [ICML2025 Oral Sundial PPT](https://cloud.tsinghua.edu.cn/f/8d526337afde465e87c9/)
 - Blog: [AI论文速读 | 日晷(Sundial)：一系列高性能时间序列基础模型](https://zhuanlan.zhihu.com/p/22292409357)
 
 ### 1.1 模型结构
@@ -100,7 +102,7 @@
 
 - 输入固定长度的历史窗口。
 - 通过 `num_samples` 生成多个未来候选轨迹，再聚合为均值预测或保留分布信息。
-- 本仓库 benchmark 默认对生成样本做均值聚合，再计算 `MAE/MSE/RMSE/MAPE`。
+- 本仓库 benchmark 现在同时保留生成样本分布，除均值点预测外，还会落盘分位数、预测区间和概率指标。
 
 ### 1.4 优势
 
@@ -315,6 +317,7 @@ bash scripts/time_moe/a100/200m/weather_200m_a100.sh
 脚本：
 
 - `scripts/sundial/local/etth1.sh`
+- `scripts/sundial/local/etth1_probabilistic.sh`
 - `scripts/sundial/local/etth2.sh`
 - `scripts/sundial/local/electricity_smoke.sh`
 - `scripts/sundial/local/traffic_smoke.sh`
@@ -343,16 +346,18 @@ python models/sundial_usage/run_benchmark.py \
 
 说明：
 
-- `Sundial` 支持多样本未来轨迹生成，本仓库默认对多个样本取均值后再计算误差指标。
+- `Sundial` 支持多样本未来轨迹生成，本仓库在保留均值点预测指标的同时，也会保存样本分布、分位数和预测区间。
 - 默认 checkpoint 使用项目内的 `pretrain_models/sundial-base-128m`。
 - 所有脚本都支持通过环境变量覆盖默认参数，例如 `DEVICE=mps NUM_SAMPLES=2 bash scripts/sundial/local/etth1.sh`。
 - 本地冷启动仍可能较慢；如果追求更快反馈，建议直接迁移到 A100 服务器上跑。
+- 官方 `quickstart_zero_shot_generation.ipynb` 展示的是概率预测范式：生成多条未来样本，再查看 `mean`、`quantile` 和 `prediction interval`；本仓库已按同样思路补齐对应落盘产物。
 
 ### A100 正式实验
 
 脚本：
 
 - `scripts/sundial/a100/etth1_a100.sh`
+- `scripts/sundial/a100/etth1_probabilistic_a100.sh`
 - `scripts/sundial/a100/etth2_a100.sh`
 - `scripts/sundial/a100/electricity_a100.sh`
 - `scripts/sundial/a100/traffic_a100.sh`
@@ -439,6 +444,7 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 ### Sundial
 
 - 本地 smoke 结果：`results/sundial/etth1_auto_device_smoke/`
+- 本地概率预测 smoke：`results/sundial/etth1_probabilistic_smoke/`
 - A100 正式实验待执行：`results/sundial/etth1_a100_pending.md`
 
 ## 4.2 对比表
@@ -509,14 +515,21 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 - `results/sundial/etth1_auto_device_smoke/config.json`
 - `results/sundial/etth1_auto_device_smoke/metrics.json`
 - `results/sundial/etth1_auto_device_smoke/predictions.csv`
+- `results/sundial/etth1_auto_device_smoke/sample_predictions.npz`
+- `results/sundial/etth1_auto_device_smoke/quantiles.csv`
+- `results/sundial/etth1_auto_device_smoke/probabilistic_metrics.json`
 
 说明：
 
 - 该实验同样属于功能验证级别的 smoke test。
 - 当前本地环境未启用 `mps`，因此 `--device auto` 自动回退到 `cpu`。
+- 由于 `num_samples>1`，当前 `Sundial` benchmark 已同时对概率预测功能进行测试，并保存分位数与预测区间产物。
 
 ### Sundial 其他本地 smoke
 
+- `ETTh1` 概率预测 smoke 已完成：
+  `results/sundial/etth1_probabilistic_smoke/probabilistic_metrics.json`
+  指标：`pinball_loss_q10=0.3400`，`pinball_loss_q50=0.7107`，`pinball_loss_q90=0.4947`，`interval_coverage_q05_q95=0.6250`，`interval_width_q05_q95=4.0157`
 - `ETTh2` 已完成：
   `results/sundial/etth2_auto_device_smoke/metrics.json`
   指标：`MAE=2.9528`，`MSE=10.1157`，`RMSE=3.1805`，`MAPE=0.0875`

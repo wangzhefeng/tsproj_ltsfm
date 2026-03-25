@@ -23,7 +23,13 @@ if ROOT_STR not in sys.path:
 
 from data_provider.benchmark_dataset import build_series_windows, read_time_series_frame
 from utils.device import recommended_dtype, resolve_runtime_device
-from utils.forecasting import EvalConfig, compute_metrics, save_run_artifacts
+from utils.forecasting import (
+    EvalConfig,
+    compute_metrics,
+    compute_probabilistic_metrics,
+    save_probabilistic_artifacts,
+    save_run_artifacts,
+)
 
 
 DEFAULT_CHECKPOINT = "pretrain_models/sundial-base-128m"
@@ -75,7 +81,7 @@ def main() -> None:
         device_map=runtime.device_map,
         dtype=resolved_dtype,
     )
-    predictions = run_forecast(
+    predictions, sample_predictions = run_forecast(
         model=model,
         contexts=windows.contexts,
         prediction_length=args.prediction_length,
@@ -86,6 +92,7 @@ def main() -> None:
     )
 
     metrics = compute_metrics(windows.targets, predictions)
+    probabilistic_metrics = compute_probabilistic_metrics(windows.targets, sample_predictions)
     config = EvalConfig(
         model_name="Sundial",
         checkpoint=args.checkpoint,
@@ -115,9 +122,23 @@ def main() -> None:
         start_indices=windows.start_indices,
         time_index=windows.time_index,
         save_plot=args.save_plot,
+        extra_summary_lines=[
+            f"- probabilistic_metrics: `{probabilistic_metrics}`",
+            "- probabilistic_outputs: `sample_predictions.npz`, `quantiles.csv`, `probabilistic_metrics.json`, `probabilistic_plot.png`",
+        ],
+    )
+    save_probabilistic_artifacts(
+        output_dir=args.output_dir,
+        sample_predictions=sample_predictions,
+        targets=windows.targets,
+        start_indices=windows.start_indices,
+        probabilistic_metrics=probabilistic_metrics,
+        time_index=windows.time_index,
+        save_plot=args.save_plot,
     )
 
     print(metrics)
+    print(probabilistic_metrics)
 
 
 def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
@@ -152,8 +173,9 @@ def run_forecast(
     num_samples: int,
     device: str,
     dtype: str,
-) -> np.ndarray:
-    outputs: list[np.ndarray] = []
+) -> tuple[np.ndarray, np.ndarray]:
+    point_outputs: list[np.ndarray] = []
+    sample_outputs: list[np.ndarray] = []
     tensor_dtype = _resolve_tensor_dtype(dtype) or next(model.parameters()).dtype
     for start in range(0, len(contexts), batch_size):
         batch = torch.from_numpy(contexts[start:start + batch_size])
@@ -168,27 +190,28 @@ def run_forecast(
                 revin=True,
                 num_samples=num_samples,
             )
-        predictions = _normalize_sundial_output(
+        candidates = _normalize_sundial_candidates(
             generated=generated.logits,
             prediction_length=prediction_length,
         )
-        outputs.append(predictions.detach().float().cpu().numpy())
-    return np.concatenate(outputs, axis=0)
+        point_outputs.append(candidates.mean(dim=1).detach().float().cpu().numpy())
+        sample_outputs.append(candidates.detach().float().cpu().numpy())
+    return np.concatenate(point_outputs, axis=0), np.concatenate(sample_outputs, axis=0)
 
 
-def _normalize_sundial_output(generated, prediction_length: int) -> torch.Tensor:
+def _normalize_sundial_candidates(generated, prediction_length: int) -> torch.Tensor:
     if generated.ndim == 2:
         if generated.shape[-1] == prediction_length:
-            return generated
+            return generated.unsqueeze(1)
         if generated.shape[-1] > prediction_length:
-            return generated[:, :prediction_length]
+            return generated[:, :prediction_length].unsqueeze(1)
     if generated.ndim == 3:
         candidates = generated
         if candidates.shape[-1] > prediction_length:
             candidates = candidates[..., :prediction_length]
         elif candidates.shape[-1] != prediction_length:
             raise ValueError(f"unexpected Sundial candidate shape: {tuple(generated.shape)}")
-        return candidates.mean(dim=1)
+        return candidates
     raise ValueError(f"unexpected Sundial output shape: {tuple(generated.shape)}")
 
 

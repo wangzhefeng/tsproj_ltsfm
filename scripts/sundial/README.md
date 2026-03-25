@@ -12,10 +12,12 @@
 - 数据：`ETTh1`、`ETTh2`、`electricity`、`traffic`、`weather`
 - 模型：`sundial-base-128m`
 - 环境：本地 smoke、A100 正式实验
+- 概率预测：`etth1_probabilistic*.sh` 用于显式测试多样本生成、分位数和预测区间产物
 
 命名约定：
 
 - `etth1.sh`、`etth2.sh`：ETT 数据集脚本
+- `etth1_probabilistic.sh`、`etth1_probabilistic_a100.sh`：显式概率预测脚本
 - `*_smoke.sh`：本地轻量验证脚本
 - `*_a100.sh`：服务器正式实验脚本
 
