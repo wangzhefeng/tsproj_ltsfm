@@ -1,11 +1,16 @@
 # Sundial Scripts
 
-`scripts/sundial/` 按运行环境分类，避免本地 smoke 和服务器正式实验脚本混在同一层目录。
+`scripts/sundial/` 按运行环境分类，并在文件名中区分“常规点预测”和“显式概率预测”脚本，避免不同用途的脚本混在一起。
 
 当前结构：
 
 - `local/`：本地 smoke test 脚本
 - `a100/`：A100 正式实验脚本
+
+目录清单：
+
+- `local/`：`etth1.sh`、`etth1_probabilistic.sh`、`etth2.sh`、`electricity_smoke.sh`、`traffic_smoke.sh`、`weather_smoke.sh`
+- `a100/`：`etth1_a100.sh`、`etth1_probabilistic_a100.sh`、`etth2_a100.sh`、`electricity_a100.sh`、`traffic_a100.sh`、`weather_a100.sh`
 
 覆盖范围：
 

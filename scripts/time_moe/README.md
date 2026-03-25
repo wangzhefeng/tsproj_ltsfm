@@ -9,6 +9,13 @@
 - `a100/50m/`：`TimeMoE-50M` 的 A100 正式实验脚本
 - `a100/200m/`：`TimeMoE-200M` 的 A100 正式实验脚本
 
+目录清单：
+
+- `local/50m/`：`etth1.sh`、`etth2.sh`、`electricity_smoke.sh`、`traffic_smoke.sh`、`weather_smoke.sh`
+- `local/200m/`：`etth1_200m.sh`、`etth2_200m.sh`、`electricity_200m_smoke.sh`、`traffic_200m_smoke.sh`、`weather_200m_smoke.sh`
+- `a100/50m/`：`etth1_a100.sh`、`etth2_a100.sh`、`electricity_a100.sh`、`traffic_a100.sh`、`weather_a100.sh`
+- `a100/200m/`：`etth1_200m_a100.sh`、`etth2_200m_a100.sh`、`electricity_200m_a100.sh`、`traffic_200m_a100.sh`、`weather_200m_a100.sh`
+
 覆盖范围：
 
 - 数据：`ETTh1`、`ETTh2`、`electricity`、`traffic`、`weather`

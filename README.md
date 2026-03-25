@@ -210,19 +210,38 @@ uv sync
 
 ## 2.3 Time-MoE 使用方法
 
+### 脚本分类说明
+
+`scripts/time_moe/` 按“运行环境 + 模型规模”分类：
+
+- `scripts/time_moe/local/50m/`：`TimeMoE-50M` 本地轻量验证
+- `scripts/time_moe/local/200m/`：`TimeMoE-200M` 本地轻量验证
+- `scripts/time_moe/a100/50m/`：`TimeMoE-50M` A100 正式实验
+- `scripts/time_moe/a100/200m/`：`TimeMoE-200M` A100 正式实验
+
+命名规则：
+
+- `etth1.sh`、`etth2.sh`：ETT 数据集脚本
+- `*_smoke.sh`：本地轻量验证脚本
+- `*_a100.sh`：服务器正式实验脚本
+- `*_200m*.sh`：使用 `pretrain_models/TimeMoE-200M`
+
 ### 本地 smoke test
 
-脚本：
+`scripts/time_moe/local/50m/`：
 
 - `scripts/time_moe/local/50m/etth1.sh`
-- `scripts/time_moe/local/200m/etth1_200m.sh`
-- `scripts/time_moe/local/200m/etth2_200m.sh`
 - `scripts/time_moe/local/50m/etth2.sh`
 - `scripts/time_moe/local/50m/electricity_smoke.sh`
-- `scripts/time_moe/local/200m/electricity_200m_smoke.sh`
 - `scripts/time_moe/local/50m/traffic_smoke.sh`
-- `scripts/time_moe/local/200m/traffic_200m_smoke.sh`
 - `scripts/time_moe/local/50m/weather_smoke.sh`
+
+`scripts/time_moe/local/200m/`：
+
+- `scripts/time_moe/local/200m/etth1_200m.sh`
+- `scripts/time_moe/local/200m/etth2_200m.sh`
+- `scripts/time_moe/local/200m/electricity_200m_smoke.sh`
+- `scripts/time_moe/local/200m/traffic_200m_smoke.sh`
 - `scripts/time_moe/local/200m/weather_200m_smoke.sh`
 
 示例：
@@ -256,13 +275,16 @@ python models/time_moe_usage/run_benchmark.py \
 
 ### A100 正式实验
 
-脚本：
+`scripts/time_moe/a100/50m/`：
 
 - `scripts/time_moe/a100/50m/etth1_a100.sh`
 - `scripts/time_moe/a100/50m/etth2_a100.sh`
 - `scripts/time_moe/a100/50m/electricity_a100.sh`
 - `scripts/time_moe/a100/50m/traffic_a100.sh`
 - `scripts/time_moe/a100/50m/weather_a100.sh`
+
+`scripts/time_moe/a100/200m/`：
+
 - `scripts/time_moe/a100/200m/etth1_200m_a100.sh`
 - `scripts/time_moe/a100/200m/etth2_200m_a100.sh`
 - `scripts/time_moe/a100/200m/electricity_200m_a100.sh`
@@ -312,9 +334,23 @@ bash scripts/time_moe/a100/200m/weather_200m_a100.sh
 
 ## 2.4 Sundial 使用方法
 
+### 脚本分类说明
+
+`scripts/sundial/` 按“运行环境 + 功能类型”分类：
+
+- `scripts/sundial/local/`：本地脚本
+- `scripts/sundial/a100/`：A100 正式实验脚本
+
+命名规则：
+
+- `etth1.sh`、`etth2.sh`：常规点预测脚本
+- `*_smoke.sh`：本地轻量验证脚本
+- `*_a100.sh`：服务器正式实验脚本
+- `etth1_probabilistic.sh`、`etth1_probabilistic_a100.sh`：显式概率预测脚本，保留样本分布并生成分位数与预测区间产物
+
 ### 本地 smoke test
 
-脚本：
+`scripts/sundial/local/`：
 
 - `scripts/sundial/local/etth1.sh`
 - `scripts/sundial/local/etth1_probabilistic.sh`
@@ -354,7 +390,7 @@ python models/sundial_usage/run_benchmark.py \
 
 ### A100 正式实验
 
-脚本：
+`scripts/sundial/a100/`：
 
 - `scripts/sundial/a100/etth1_a100.sh`
 - `scripts/sundial/a100/etth1_probabilistic_a100.sh`
