@@ -30,7 +30,9 @@
 
 - Paper: [Time-MoE: Billion-Scale Time Series Foundation Models with Mixture of Experts](https://arxiv.org/abs/2409.16040)
 - GitHub: <https://github.com/Time-MoE/Time-MoE>
-- Hugging Face: <https://huggingface.co/Maple728/TimeMoE-50M>
+- Hugging Face:
+  - `50M`: <https://huggingface.co/Maple728/TimeMoE-50M>
+  - `200M`: <https://huggingface.co/Maple728/TimeMoE-200M>
 - Blog: [全球首次！时序大模型突破十亿参数，华人团队发布Time-MoE，预训练数据达3000亿个时间点](https://mp.weixin.qq.com/s/LaYn0IJAOlN9Ufp_qus96Q)
 
 ### 1.1 模型结构
