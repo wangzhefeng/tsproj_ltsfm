@@ -22,7 +22,15 @@ if ROOT_STR not in sys.path:
 
 from data_provider.benchmark_dataset import build_series_windows, read_time_series_frame
 from utils.device import recommended_dtype, resolve_runtime_device
-from utils.forecasting import EvalConfig, compute_metrics, save_run_artifacts
+from utils.forecasting import (
+    EvalConfig,
+    compute_metrics,
+    save_run_artifacts,
+)
+from utils.log_util import logger
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
 DEFAULT_CHECKPOINT = "pretrain_models/TimeMoE-50M"
@@ -50,73 +58,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    args = build_parser().parse_args()
-
-    frame = read_time_series_frame(args.data, zip_member=args.zip_member, time_col=args.time_col)
-    windows = build_series_windows(
-        frame=frame,
-        context_length=args.context_length,
-        prediction_length=args.prediction_length,
-        target_col=args.target_col,
-        time_col=args.time_col,
-        stride=args.stride,
-        sample_limit=args.sample_limit,
-    )
-    windows.dataset_name = args.dataset_name
-    runtime = resolve_runtime_device(args.device, args.device_map)
-    resolved_dtype = recommended_dtype(runtime.device, args.dtype)
-
-    model = load_model(
-        args.checkpoint,
-        device=runtime.device,
-        device_map=runtime.device_map,
-        dtype=resolved_dtype,
-    )
-    predictions = run_forecast(
-        model=model,
-        contexts=windows.contexts,
-        prediction_length=args.prediction_length,
-        batch_size=args.batch_size,
-        device=runtime.device,
-        dtype=resolved_dtype,
-    )
-
-    metrics = compute_metrics(windows.targets, predictions)
-    config = EvalConfig(
-        model_name="Time-MoE",
-        checkpoint=args.checkpoint,
-        data_path=args.data,
-        dataset_name=args.dataset_name,
-        env=args.env,
-        device=runtime.device,
-        device_map=runtime.device_map,
-        dtype=resolved_dtype,
-        context_length=args.context_length,
-        prediction_length=args.prediction_length,
-        batch_size=args.batch_size,
-        num_samples=1,
-        stride=args.stride,
-        sample_limit=args.sample_limit,
-        target_col=windows.target_col,
-        time_col=windows.time_col,
-        zip_member=args.zip_member,
-    )
-    save_run_artifacts(
-        output_dir=args.output_dir,
-        config=config,
-        metrics=metrics,
-        contexts=windows.contexts,
-        targets=windows.targets,
-        predictions=predictions,
-        start_indices=windows.start_indices,
-        time_index=windows.time_index,
-        save_plot=args.save_plot,
-    )
-
-    print(metrics)
-
-
 def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
     kwargs = {
         "trust_remote_code": True,
@@ -126,6 +67,7 @@ def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
         kwargs["torch_dtype"] = torch_dtype
     if device_map == "auto":
         kwargs["device_map"] = "auto"
+    
     model = AutoModelForCausalLM.from_pretrained(checkpoint, **kwargs)
     if device_map == "none":
         model = model.to(device)
@@ -134,6 +76,7 @@ def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
     if not hasattr(model, "_extract_past_from_model_output"):
         model._extract_past_from_model_output = types.MethodType(_extract_past_from_model_output, model)
     model.eval()
+    
     return model
 
 
@@ -210,6 +153,80 @@ def _extract_past_from_model_output(self, outputs, standardize_cache_format: boo
     del standardize_cache_format
     return getattr(outputs, "past_key_values", None)
 
+
+def main() -> None:
+    args = build_parser().parse_args()
+
+    # 输入数据
+    frame = read_time_series_frame(args.data, zip_member=args.zip_member, time_col=args.time_col)
+    logger.info(f"input data: {frame.head()}")
+    # 预测数据窗口
+    windows = build_series_windows(
+        frame=frame,
+        context_length=args.context_length,
+        prediction_length=args.prediction_length,
+        target_col=args.target_col,
+        time_col=args.time_col,
+        stride=args.stride,
+        sample_limit=args.sample_limit,
+    )
+    windows.dataset_name = args.dataset_name
+    logger.info(f"input windows: {windows}")
+    logger.info(f"input windows context: {len(windows.contexts)}")
+    logger.info(f"input windows prediction_length: {len(windows.prediction_length)}")
+    # 模型运行配置
+    runtime = resolve_runtime_device(args.device, args.device_map)
+    resolved_dtype = recommended_dtype(runtime.device, args.dtype)
+    # 模型加载
+    model = load_model(
+        args.checkpoint,
+        device=runtime.device,
+        device_map=runtime.device_map,
+        dtype=resolved_dtype,
+    )
+    # 模型预测
+    predictions = run_forecast(
+        model=model,
+        contexts=windows.contexts,
+        prediction_length=args.prediction_length,
+        batch_size=args.batch_size,
+        device=runtime.device,
+        dtype=resolved_dtype,
+    )
+    # 模型预测评估
+    metrics = compute_metrics(windows.targets, predictions)
+    config = EvalConfig(
+        model_name="Time-MoE",
+        checkpoint=args.checkpoint,
+        data_path=args.data,
+        dataset_name=args.dataset_name,
+        env=args.env,
+        device=runtime.device,
+        device_map=runtime.device_map,
+        dtype=resolved_dtype,
+        context_length=args.context_length,
+        prediction_length=args.prediction_length,
+        batch_size=args.batch_size,
+        num_samples=1,
+        stride=args.stride,
+        sample_limit=args.sample_limit,
+        target_col=windows.target_col,
+        time_col=windows.time_col,
+        zip_member=args.zip_member,
+    )
+    save_run_artifacts(
+        output_dir=args.output_dir,
+        config=config,
+        metrics=metrics,
+        contexts=windows.contexts,
+        targets=windows.targets,
+        predictions=predictions,
+        start_indices=windows.start_indices,
+        time_index=windows.time_index,
+        save_plot=args.save_plot,
+    )
+
+    logger.info(metrics)
 
 if __name__ == "__main__":
     main()

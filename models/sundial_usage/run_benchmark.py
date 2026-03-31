@@ -30,6 +30,10 @@ from utils.forecasting import (
     save_probabilistic_artifacts,
     save_run_artifacts,
 )
+from utils.log_util import logger
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
 DEFAULT_CHECKPOINT = "pretrain_models/sundial-base-128m"
@@ -58,89 +62,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    args = build_parser().parse_args()
-
-    frame = read_time_series_frame(args.data, zip_member=args.zip_member, time_col=args.time_col)
-    windows = build_series_windows(
-        frame=frame,
-        context_length=args.context_length,
-        prediction_length=args.prediction_length,
-        target_col=args.target_col,
-        time_col=args.time_col,
-        stride=args.stride,
-        sample_limit=args.sample_limit,
-    )
-    windows.dataset_name = args.dataset_name
-    runtime = resolve_runtime_device(args.device, args.device_map)
-    resolved_dtype = recommended_dtype(runtime.device, args.dtype)
-
-    model = load_model(
-        args.checkpoint,
-        device=runtime.device,
-        device_map=runtime.device_map,
-        dtype=resolved_dtype,
-    )
-    predictions, sample_predictions = run_forecast(
-        model=model,
-        contexts=windows.contexts,
-        prediction_length=args.prediction_length,
-        batch_size=args.batch_size,
-        num_samples=args.num_samples,
-        device=runtime.device,
-        dtype=resolved_dtype,
-    )
-
-    metrics = compute_metrics(windows.targets, predictions)
-    probabilistic_metrics = compute_probabilistic_metrics(windows.targets, sample_predictions)
-    config = EvalConfig(
-        model_name="Sundial",
-        checkpoint=args.checkpoint,
-        data_path=args.data,
-        dataset_name=args.dataset_name,
-        env=args.env,
-        device=runtime.device,
-        device_map=runtime.device_map,
-        dtype=resolved_dtype,
-        context_length=args.context_length,
-        prediction_length=args.prediction_length,
-        batch_size=args.batch_size,
-        num_samples=args.num_samples,
-        stride=args.stride,
-        sample_limit=args.sample_limit,
-        target_col=windows.target_col,
-        time_col=windows.time_col,
-        zip_member=args.zip_member,
-    )
-    save_run_artifacts(
-        output_dir=args.output_dir,
-        config=config,
-        metrics=metrics,
-        contexts=windows.contexts,
-        targets=windows.targets,
-        predictions=predictions,
-        start_indices=windows.start_indices,
-        time_index=windows.time_index,
-        save_plot=args.save_plot,
-        extra_summary_lines=[
-            f"- probabilistic_metrics: `{probabilistic_metrics}`",
-            "- probabilistic_outputs: `sample_predictions.npz`, `quantiles.csv`, `probabilistic_metrics.json`, `probabilistic_plot.png`",
-        ],
-    )
-    save_probabilistic_artifacts(
-        output_dir=args.output_dir,
-        sample_predictions=sample_predictions,
-        targets=windows.targets,
-        start_indices=windows.start_indices,
-        probabilistic_metrics=probabilistic_metrics,
-        time_index=windows.time_index,
-        save_plot=args.save_plot,
-    )
-
-    print(metrics)
-    print(probabilistic_metrics)
-
-
 def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
     kwargs = {
         "trust_remote_code": True,
@@ -150,6 +71,7 @@ def load_model(checkpoint: str, device: str, device_map: str, dtype: str):
         kwargs["torch_dtype"] = torch_dtype
     if device_map == "auto":
         kwargs["device_map"] = "auto"
+    
     model = AutoModelForCausalLM.from_pretrained(checkpoint, **kwargs)
     if device_map == "none":
         model = model.to(device)
@@ -298,6 +220,88 @@ def _prepare_inputs_for_generation_compatible(
     )
     return model_inputs
 
+
+def main() -> None:
+    args = build_parser().parse_args()
+
+    frame = read_time_series_frame(args.data, zip_member=args.zip_member, time_col=args.time_col)
+    windows = build_series_windows(
+        frame=frame,
+        context_length=args.context_length,
+        prediction_length=args.prediction_length,
+        target_col=args.target_col,
+        time_col=args.time_col,
+        stride=args.stride,
+        sample_limit=args.sample_limit,
+    )
+    windows.dataset_name = args.dataset_name
+    runtime = resolve_runtime_device(args.device, args.device_map)
+    resolved_dtype = recommended_dtype(runtime.device, args.dtype)
+
+    model = load_model(
+        args.checkpoint,
+        device=runtime.device,
+        device_map=runtime.device_map,
+        dtype=resolved_dtype,
+    )
+    predictions, sample_predictions = run_forecast(
+        model=model,
+        contexts=windows.contexts,
+        prediction_length=args.prediction_length,
+        batch_size=args.batch_size,
+        num_samples=args.num_samples,
+        device=runtime.device,
+        dtype=resolved_dtype,
+    )
+
+    metrics = compute_metrics(windows.targets, predictions)
+    probabilistic_metrics = compute_probabilistic_metrics(windows.targets, sample_predictions)
+    config = EvalConfig(
+        model_name="Sundial",
+        checkpoint=args.checkpoint,
+        data_path=args.data,
+        dataset_name=args.dataset_name,
+        env=args.env,
+        device=runtime.device,
+        device_map=runtime.device_map,
+        dtype=resolved_dtype,
+        context_length=args.context_length,
+        prediction_length=args.prediction_length,
+        batch_size=args.batch_size,
+        num_samples=args.num_samples,
+        stride=args.stride,
+        sample_limit=args.sample_limit,
+        target_col=windows.target_col,
+        time_col=windows.time_col,
+        zip_member=args.zip_member,
+    )
+    save_run_artifacts(
+        output_dir=args.output_dir,
+        config=config,
+        metrics=metrics,
+        contexts=windows.contexts,
+        targets=windows.targets,
+        predictions=predictions,
+        start_indices=windows.start_indices,
+        time_index=windows.time_index,
+        save_plot=args.save_plot,
+        extra_summary_lines=[
+            f"- probabilistic_metrics: `{probabilistic_metrics}`",
+            "- probabilistic_outputs: `sample_predictions.npz`, `quantiles.csv`, `probabilistic_metrics.json`, `probabilistic_plot.png`",
+        ],
+    )
+    save_probabilistic_artifacts(
+        output_dir=args.output_dir,
+        sample_predictions=sample_predictions,
+        targets=windows.targets,
+        start_indices=windows.start_indices,
+        probabilistic_metrics=probabilistic_metrics,
+        time_index=windows.time_index,
+        save_plot=args.save_plot,
+    )
+
+    logger.info(metrics)
+    logger.info(probabilistic_metrics)
 
 if __name__ == "__main__":
     main()
