@@ -11,7 +11,7 @@ CHECKPOINT="${CHECKPOINT:-pretrain_models/sundial-base-128m}"
 OUTPUT_DIR="${OUTPUT_DIR:-results/sundial/etth1_auto_device_smoke}"
 
 python models/sundial_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length "$CONTEXT_LENGTH" \

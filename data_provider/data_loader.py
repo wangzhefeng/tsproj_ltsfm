@@ -9,7 +9,10 @@ from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 from data_provider.m4 import M4Dataset, M4Meta
 from data_provider.uea import subsample, interpolate_missing, Normalizer
-from sktime.datasets import load_from_tsfile_to_dataframe
+try:
+    from sktime.datasets import load_from_tsfile_to_dataframe
+except ImportError:  # Optional dependency used only for UEA classification datasets.
+    load_from_tsfile_to_dataframe = None
 import warnings
 from utils.augmentation import run_augmentation_single
 from datasets import load_dataset
@@ -786,6 +789,10 @@ class UEAloader(Dataset):
         return all_df, labels_df
 
     def load_single(self, filepath):
+        if load_from_tsfile_to_dataframe is None:
+            raise ImportError(
+                "sktime is required for UEA datasets. Install it separately before using UEAloader."
+            )
         df, labels = load_from_tsfile_to_dataframe(filepath, return_separate_X_and_y=True,
                                                              replace_missing_vals_with='NaN')
         labels = pd.Series(labels, dtype="category")

@@ -10,7 +10,7 @@ CHECKPOINT="${CHECKPOINT:-pretrain_models/TimeMoE-200M}"
 OUTPUT_DIR="${OUTPUT_DIR:-results/time_moe/etth2_200m_a100}"
 
 python models/time_moe_usage/run_benchmark.py \
-  --data dataset/ETTh2.csv \
+  --data dataset/ETT-small/ETTh2.csv \
   --dataset-name ETTh2 \
   --target-col OT \
   --context-length "$CONTEXT_LENGTH" \

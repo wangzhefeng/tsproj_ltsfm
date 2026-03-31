@@ -1,8 +1,5 @@
 import torch
 from torch import nn
-from layers.Transformer_EncDec import Encoder, EncoderLayer
-from layers.SelfAttention_Family import FullAttention, AttentionLayer
-from layers.Embed import PatchEmbedding
 from chronos import BaseChronosPipeline
 
 
@@ -13,7 +10,17 @@ class Model(nn.Module):
         stride: int, stride for patch_embedding
         """
         super().__init__()
-        self.model = BaseChronosPipeline.from_pretrained("amazon/chronos-2", device_map="cuda")
+        device_map = "cpu"
+        if getattr(configs, "use_gpu", False):
+            if getattr(configs, "gpu_type", "cuda") == "cuda" and torch.cuda.is_available():
+                device_map = "cuda"
+            elif getattr(configs, "gpu_type", "") == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                device_map = "mps"
+
+        self.model = BaseChronosPipeline.from_pretrained(
+            "amazon/chronos-2",
+            device_map=device_map,
+        )
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len

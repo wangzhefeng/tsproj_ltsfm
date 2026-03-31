@@ -28,6 +28,12 @@ pip install -e .
 pip install accelerate
 ```
 
+项目中的 zero-shot 验证链路额外依赖 `chronos-forecasting`，如果 `pip install -e .` 后仍无法导入，请执行：
+
+```bash
+pip install chronos-forecasting
+```
+
 推荐环境变量：
 
 ```bash
@@ -41,6 +47,11 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 ```bash
 python models/time_moe_usage/run_benchmark.py --help
 python models/sundial_usage/run_benchmark.py --help
+python run.py --help
+python - <<'PY'
+import chronos
+print('chronos ok')
+PY
 python - <<'PY'
 import torch
 print('cuda', torch.cuda.is_available())
@@ -102,6 +113,63 @@ bash scripts/sundial/a100/weather_a100.sh
 - `batch-size`
 
 逐步放大。
+
+### 4.3 Zero-Shot 验证
+
+在 A100 上验证新增的 `Chronos2` zero-shot 链路时，优先先跑单组 smoke：
+
+```bash
+./.venv/bin/python run.py \
+  --task_name zero_shot_forecast \
+  --is_training 0 \
+  --root_path ./dataset/ETT-small/ \
+  --data_path ETTh1.csv \
+  --model_id ETTh1_2048_96 \
+  --model Chronos2 \
+  --data ETTh1 \
+  --features M \
+  --seq_len 2048 \
+  --pred_len 96 \
+  --seg_len 24 \
+  --enc_in 7 \
+  --d_model 512 \
+  --dropout 0.5 \
+  --learning_rate 0.0001 \
+  --des Exp \
+  --itr 1 \
+  --use_gpu \
+  --gpu_type cuda \
+  --gpu 0
+```
+
+单组验证通过后，再执行完整批处理：
+
+```bash
+DEVICE=cuda GPU_ID=0 bash scripts/long_term_forecast/ETT_script/LTSM.sh
+```
+
+脚本支持这些环境变量覆盖：
+
+- `PYTHON_BIN`
+- `DEVICE`
+- `GPU_ID`
+- `MODEL_NAME`
+- `SEQ_LEN`
+- `BATCH_SIZE`
+- `NUM_WORKERS`
+- `MPLCONFIGDIR`
+
+zero-shot 验证的中间 PDF 和最终数组结果会统一写到：
+
+- `results/<setting>/`
+
+建议至少保留：
+
+- `summary.txt`
+- `metrics.npy`
+- `pred.npy`
+- `true.npy`
+- 若生成可视化，则保留对应 `*.pdf`
 
 ## 5. 结果回传
 

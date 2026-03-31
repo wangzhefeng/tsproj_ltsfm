@@ -139,6 +139,7 @@
 
 当前项目依赖见 `pyproject.toml`，模型推理入口基于：
 
+- `chronos-forecasting`
 - `torch`
 - `transformers`
 - `pandas`
@@ -248,7 +249,7 @@ uv sync
 
 ```bash
 python models/time_moe_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length 128 \
@@ -266,7 +267,7 @@ python models/time_moe_usage/run_benchmark.py \
 
 说明：
 
-- 本仓库对 `Time-MoE` 做了 `transformers 5.x` 兼容适配，避免直接走官方 `generate()` 路径。
+- 本仓库对 `Time-MoE` 做了推理兼容适配，避免直接走官方 `generate()` 路径；当前环境约束为 `transformers>=4.41,<5`，以兼容 `chronos-forecasting`。
 - 默认 checkpoint 使用项目内的 `pretrain_models/TimeMoE-50M`。
 - 如需测试更大规模 checkpoint，可改用 `pretrain_models/TimeMoE-200M`。
 - `--device auto` 会自动适配 `cuda/mps/cpu`。
@@ -295,7 +296,7 @@ python models/time_moe_usage/run_benchmark.py \
 
 ```bash
 python models/time_moe_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length 1024 \
@@ -363,7 +364,7 @@ bash scripts/time_moe/a100/200m/weather_200m_a100.sh
 
 ```bash
 python models/sundial_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length 128 \
@@ -403,7 +404,7 @@ python models/sundial_usage/run_benchmark.py \
 
 ```bash
 python models/sundial_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length 2880 \
@@ -440,15 +441,84 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 更完整的服务器执行步骤见 `A100_RUNBOOK.md`。
 
+## 2.5 Zero-Shot 验证脚本
+
+新增的零样本验证入口基于：
+
+- `run.py`
+- `exp/exp_zero_shot_forecasting.py`
+- `models/Chronos2.py`
+- `scripts/long_term_forecast/ETT_script/LTSM.sh`
+
+该链路与前面的统一 benchmark CLI 分开维护，主要用于直接验证 ETT 上的 `zero_shot_forecast` 流程。运行前提：
+
+- ETT 数据放在 `dataset/ETT-small/`
+- 项目依赖已通过 `uv sync` 安装完成
+- `chronos-forecasting` 已在 `.venv` 中可导入
+
+本地 M2 / MPS 最小验证示例：
+
+```bash
+./.venv/bin/python run.py \
+  --task_name zero_shot_forecast \
+  --is_training 0 \
+  --root_path ./dataset/ETT-small/ \
+  --data_path ETTh1.csv \
+  --model_id ETTh1_2048_96 \
+  --model Chronos2 \
+  --data ETTh1 \
+  --features M \
+  --seq_len 2048 \
+  --pred_len 96 \
+  --seg_len 24 \
+  --enc_in 7 \
+  --d_model 512 \
+  --dropout 0.5 \
+  --learning_rate 0.0001 \
+  --des Exp \
+  --itr 1 \
+  --use_gpu \
+  --gpu_type mps
+```
+
+批量运行脚本：
+
+```bash
+bash scripts/long_term_forecast/ETT_script/LTSM.sh
+```
+
+脚本支持环境变量覆盖：
+
+- `PYTHON_BIN`：默认 `./.venv/bin/python`
+- `DEVICE`：`cuda` / `mps` / `cpu`
+- `GPU_ID`：仅 `DEVICE=cuda` 时使用
+- `MODEL_NAME`：默认 `Chronos2`
+- `SEQ_LEN`：默认 `2048`
+- `BATCH_SIZE`：默认 `32`
+- `NUM_WORKERS`：默认 `10`
+- `MPLCONFIGDIR`：默认项目内 `.matplotlib/`
+
+结果输出统一位于：
+
+- `results/<setting>/`
+
+其中通常包含：
+
+- `summary.txt`
+- `metrics.npy`
+- `pred.npy`
+- `true.npy`
+- 若启用可视化，还会包含若干 `*.pdf`
+
 ---
 
 # 3.模型数据说明
 
-本仓库当前将所有评测数据统一放在 `dataset/` 根目录下。对多变量数据集，当前实现默认通过 `--target-col` 选取一个目标列作为单变量预测任务。
+本仓库当前将评测数据统一放在 `dataset/` 下。其中 ETT 数据位于 `dataset/ETT-small/`，其余公开基准仍放在 `dataset/` 根目录。对多变量数据集，当前实现默认通过 `--target-col` 选取一个目标列作为单变量预测任务。
 
 | 数据文件 | 记录数 | 字段数 | 推荐目标列 | 说明 |
 | --- | ---: | ---: | --- | --- |
-| `dataset/ETTh1.csv` | 17420 | 8 | `OT` | ETT 基准之一，适合做快速 long-term forecasting smoke test |
+| `dataset/ETT-small/ETTh1.csv` | 17420 | 8 | `OT` | ETT 基准之一，适合做快速 long-term forecasting smoke test |
 | `dataset/electricity.csv` | 26304 | 322 | `0` | 电力负载，多变量宽表，可抽单列做统一比较 |
 | `dataset/traffic.csv` | 17544 | 863 | `0` | 交通流量，多变量宽表，适合服务器正式实验 |
 | `dataset/weather.csv` | 52696 | 22 | `T (degC)` | 天气数据，适合本地和服务器两级验证 |

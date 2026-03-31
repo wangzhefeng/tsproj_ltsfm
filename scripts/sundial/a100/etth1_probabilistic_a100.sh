@@ -17,7 +17,7 @@ fi
 PYTHON_BIN="${PYTHON_BIN:-$DEFAULT_PYTHON}"
 
 "$PYTHON_BIN" models/sundial_usage/run_benchmark.py \
-  --data dataset/ETTh1.csv \
+  --data dataset/ETT-small/ETTh1.csv \
   --dataset-name ETTh1 \
   --target-col OT \
   --context-length "$CONTEXT_LENGTH" \
