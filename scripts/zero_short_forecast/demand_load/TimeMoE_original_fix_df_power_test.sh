@@ -1,0 +1,32 @@
+export CUDA_VISIBLE_DEVICES=0
+
+
+model_name=TimeMoE_original_fix
+seq_len=2048
+pred_len=288
+
+
+python -u run.py \
+  --task_name zero_shot_forecast \
+  --is_training 0 \
+  --root_path ./dataset/demand_load/route_A/ \
+  --data_path df_power.csv \
+  --model_id df_power_test_$seq_len'_'$pred_len \
+  --model $model_name \
+  --data custom \
+  --features S \
+  --target h_total_use \
+  --freq 5min \
+  --seq_len $seq_len \
+  --label_len 96 \
+  --pred_len $pred_len \
+  --seg_len 24 \
+  --enc_in 1 \
+  --dec_in 1 \
+  --c_out 1 \
+  --d_model 512 \
+  --dropout 0.5 \
+  --learning_rate 0.0001 \
+  --des 'DemandLoadTest' \
+  --itr 1 \
+  --checkpoints pretrain_models/TimeMoE-50M

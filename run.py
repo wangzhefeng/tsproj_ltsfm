@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     # basic config
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
-                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]')
+                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection, zero_shot_forecast, zero_shot_predict]')
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
@@ -193,7 +193,7 @@ if __name__ == '__main__':
     # elif args.task_name == 'classification':
     #     from exp.exp_classification import Exp_Classification
     #     Exp = Exp_Classification
-    if args.task_name == 'zero_shot_forecast':
+    if args.task_name in ['zero_shot_forecast', 'zero_shot_predict']:
         from exp.exp_zero_shot_forecasting import Exp_Zero_Shot_Forecast
         Exp = Exp_Zero_Shot_Forecast
     # else:
@@ -274,7 +274,10 @@ if __name__ == '__main__':
                     + f'_tvdt{args.tv_dt}_tvB{args.tv_B}_tvC{args.tv_C}_useD{int(args.use_D)}_{args.des}_{ii}'
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test(setting, test=1)
+        if args.task_name == 'zero_shot_predict':
+            exp.predict(setting)
+        else:
+            exp.test(setting, test=1)
         if args.use_gpu:
             if args.gpu_type == 'mps':
                 torch.backends.mps.empty_cache()

@@ -1,6 +1,19 @@
+from pathlib import Path
+
 import torch
 from torch import nn
 from chronos import BaseChronosPipeline
+
+
+DEFAULT_LOCAL_CHECKPOINT = "pretrain_models/chronos-2"
+DEFAULT_REMOTE_CHECKPOINT = "amazon/chronos-2"
+
+
+def _resolve_model_source() -> str:
+    local_path = Path(DEFAULT_LOCAL_CHECKPOINT)
+    if local_path.is_dir() and (local_path / "config.json").exists():
+        return str(local_path)
+    return DEFAULT_REMOTE_CHECKPOINT
 
 
 class Model(nn.Module):
@@ -18,7 +31,7 @@ class Model(nn.Module):
                 device_map = "mps"
 
         self.model = BaseChronosPipeline.from_pretrained(
-            "amazon/chronos-2",
+            _resolve_model_source(),
             device_map=device_map,
         )
         self.task_name = configs.task_name

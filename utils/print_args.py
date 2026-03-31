@@ -11,7 +11,7 @@ def print_args(args):
     print(f'  {"Checkpoints:":<20}{args.checkpoints:<20}')
     print()
 
-    if args.task_name in ['long_term_forecast', 'short_term_forecast']:
+    if args.task_name in ['long_term_forecast', 'short_term_forecast', 'zero_shot_forecast', 'zero_shot_predict']:
         print("\033[1m" + "Forecasting Task" + "\033[0m")
         print(f'  {"Seq Len:":<20}{args.seq_len:<20}{"Label Len:":<20}{args.label_len:<20}')
         print(f'  {"Pred Len:":<20}{args.pred_len:<20}{"Seasonal Patterns:":<20}{args.seasonal_patterns:<20}')
