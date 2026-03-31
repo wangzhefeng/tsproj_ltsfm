@@ -1,3 +1,0 @@
-zero_shot_forecast_ETTh1_2048_96_Chronos2_ETTh1_ftM_sl2048_ll48_pl96_dm512_nh8_el2_dl1_df2048_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0  
-mse:0.36157020926475525, mae:0.3688466548919678, dtw:Not calculated
-

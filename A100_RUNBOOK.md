@@ -145,19 +145,18 @@ bash scripts/sundial/a100/weather_a100.sh
 单组验证通过后，再执行完整批处理：
 
 ```bash
-DEVICE=cuda GPU_ID=0 bash scripts/long_term_forecast/ETT_script/LTSM.sh
+bash scripts/zero_short_forecast/ETT_script/Chronos2_ETTh1.sh
 ```
 
-脚本支持这些环境变量覆盖：
+默认脚本内使用：
 
-- `PYTHON_BIN`
-- `DEVICE`
-- `GPU_ID`
-- `MODEL_NAME`
-- `SEQ_LEN`
-- `BATCH_SIZE`
-- `NUM_WORKERS`
-- `MPLCONFIGDIR`
+- `export CUDA_VISIBLE_DEVICES=2`
+
+如果服务器上希望改用其他卡，直接把脚本第一行改成目标 GPU 编号即可，例如：
+
+```bash
+export CUDA_VISIBLE_DEVICES=0
+```
 
 zero-shot 验证的中间 PDF 和最终数组结果会统一写到：
 

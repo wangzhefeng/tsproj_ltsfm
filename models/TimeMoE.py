@@ -24,11 +24,9 @@ class Model(nn.Module):
         x_enc = torch.reshape(x_enc, (B*C, L))
         output = self.model.generate(x_enc, max_new_tokens=self.pred_len)
         dec_out = torch.reshape(output, (B, output.shape[-1], C))
-        dec_out = dec_out[:,-self.pred_len:, :]
-        dec_out = dec_out * \
-                  (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
-        dec_out = dec_out + \
-                  (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        dec_out = dec_out[:, -self.pred_len:, :]
+        dec_out = dec_out * (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return dec_out
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):

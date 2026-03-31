@@ -448,7 +448,7 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 - `run.py`
 - `exp/exp_zero_shot_forecasting.py`
 - `models/Chronos2.py`
-- `scripts/long_term_forecast/ETT_script/LTSM.sh`
+- `scripts/zero_short_forecast/ETT_script/Chronos2_ETTh1.sh`
 
 该链路与前面的统一 benchmark CLI 分开维护，主要用于直接验证 ETT 上的 `zero_shot_forecast` 流程。运行前提：
 
@@ -456,7 +456,72 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 - 项目依赖已通过 `uv sync` 安装完成
 - `chronos-forecasting` 已在 `.venv` 中可导入
 
-本地 M2 / MPS 最小验证示例：
+`scripts/zero_short_forecast/ETT_script/` 目录下现在按“每个模型一个脚本”的方式组织，例如：
+
+- `Chronos_ETTh1.sh`
+- `Chronos2_ETTh1.sh`
+- `Moirai_ETTh1.sh`
+- `Sundial_ETTh1.sh`
+- `Sundial_benchmark_ETTh1.sh`
+- `TiRex_ETTh1.sh`
+- `TimeMoE_ETTh1.sh`
+- `TimeMoE_benchmark_ETTh1.sh`
+- `TimesFM_ETTh1.sh`
+
+这些脚本都保持原始平铺批处理风格，默认按 GPU 方式调用 `run.py`。如果需要切换运行环境，直接按下面方式调用 `run.py` 即可，不需要继续修改脚本逻辑。
+
+CPU 配置：
+
+```bash
+./.venv/bin/python run.py \
+  --task_name zero_shot_forecast \
+  --is_training 0 \
+  --root_path ./dataset/ETT-small/ \
+  --data_path ETTh1.csv \
+  --model_id ETTh1_2048_96 \
+  --model Chronos2 \
+  --data ETTh1 \
+  --features M \
+  --seq_len 2048 \
+  --pred_len 96 \
+  --seg_len 24 \
+  --enc_in 7 \
+  --d_model 512 \
+  --dropout 0.5 \
+  --learning_rate 0.0001 \
+  --des Exp \
+  --itr 1 \
+  --no_use_gpu
+```
+
+NVIDIA GPU 配置：
+
+```bash
+export CUDA_VISIBLE_DEVICES=0
+./.venv/bin/python run.py \
+  --task_name zero_shot_forecast \
+  --is_training 0 \
+  --root_path ./dataset/ETT-small/ \
+  --data_path ETTh1.csv \
+  --model_id ETTh1_2048_96 \
+  --model Chronos2 \
+  --data ETTh1 \
+  --features M \
+  --seq_len 2048 \
+  --pred_len 96 \
+  --seg_len 24 \
+  --enc_in 7 \
+  --d_model 512 \
+  --dropout 0.5 \
+  --learning_rate 0.0001 \
+  --des Exp \
+  --itr 1 \
+  --use_gpu \
+  --gpu_type cuda \
+  --gpu 0
+```
+
+Mac / MPS 配置：
 
 ```bash
 ./.venv/bin/python run.py \
@@ -481,22 +546,24 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
   --gpu_type mps
 ```
 
+说明：
+
+- Mac 上只有当前 `torch` 环境支持 MPS 时，这个配置才会真正走 `mps`
+- 如果 `torch.backends.mps.is_available()` 为 `False`，建议直接改用 `--no_use_gpu`
+- `scripts/zero_short_forecast/ETT_script/*.sh` 这批脚本本身更适合直接在 NVIDIA GPU 环境上批量执行
+
 批量运行脚本：
 
 ```bash
-bash scripts/long_term_forecast/ETT_script/LTSM.sh
+bash scripts/zero_short_forecast/ETT_script/Chronos2_ETTh1.sh
 ```
 
-脚本支持环境变量覆盖：
+`TimeMoE` 与 `Sundial` 接入当前 `run.py` 时，默认优先使用项目内本地副本：
 
-- `PYTHON_BIN`：默认 `./.venv/bin/python`
-- `DEVICE`：`cuda` / `mps` / `cpu`
-- `GPU_ID`：仅 `DEVICE=cuda` 时使用
-- `MODEL_NAME`：默认 `Chronos2`
-- `SEQ_LEN`：默认 `2048`
-- `BATCH_SIZE`：默认 `32`
-- `NUM_WORKERS`：默认 `10`
-- `MPLCONFIGDIR`：默认项目内 `.matplotlib/`
+- `pretrain_models/TimeMoE-50M`
+- `pretrain_models/sundial-base-128m`
+
+如果需要切换到其他本地模型目录，可通过 `--checkpoints <path>` 覆盖。
 
 结果输出统一位于：
 
