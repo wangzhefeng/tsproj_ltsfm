@@ -1,10 +1,13 @@
+import random
 import argparse
-import os
+
+import numpy as np
 import torch
 import torch.backends
+
 from utils.print_args import print_args
-import random
-import numpy as np
+from utils.log_util import logger
+
 
 if __name__ == '__main__':
     fix_seed = 2021
@@ -16,8 +19,10 @@ if __name__ == '__main__':
 
     # basic config
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
-                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection, zero_shot_forecast, zero_shot_predict]')
+                        help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection, zero_shot_forecast]')
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
+    parser.add_argument('--is_testing', type=int, required=True, default=1, help='status')
+    parser.add_argument('--is_forecasting', type=int, required=True, default=1, help='status')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
@@ -31,14 +36,19 @@ if __name__ == '__main__':
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
-    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
+    
+    # results path
+    parser.add_argument('--pretrain_checkpoints', type=str, default='./pretrain_models/', help='location of open-source model checkpoints')
+    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of our pre-trained model checkpoints')
+    parser.add_argument('--test_results', type=str, default='./saved_results/test_results/', help='location of model models')
+    parser.add_argument('--forecast_results', type=str, default='./saved_results/forecast_results/', help='location of model models') 
 
     # forecasting task
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=48, help='start token length')
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4')
-    parser.add_argument('--inverse', action='store_true', help='inverse output data', default=False)
+    parser.add_argument('--inverse', action='store_true', help='inverse output data', default=True)
 
     # inputation task
     parser.add_argument('--mask_rate', type=float, default=0.25, help='mask ratio')
@@ -101,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_gpu', action='store_true', default=True, help='use gpu (default: on)')
     parser.add_argument('--no_use_gpu', action='store_false', dest='use_gpu', help='disable gpu (force cpu)')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
-    parser.add_argument('--gpu_type', type=str, default='cuda', help='gpu type')  # cuda or mps
+    parser.add_argument('--gpu_type', type=str, default='mps', help='gpu type')  # cuda or mps
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
     parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 
@@ -160,13 +170,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if torch.cuda.is_available() and args.use_gpu:
         args.device = torch.device('cuda:{}'.format(args.gpu))
-        print('Using GPU')
+        logger.info('Using GPU')
     else:
         if hasattr(torch.backends, "mps"):
             args.device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
         else:
             args.device = torch.device("cpu")
-        print('Using cpu or mps')
+        logger.info('Using cpu or mps')
 
     if args.use_gpu and args.use_multi_gpu:
         args.devices = args.devices.replace(' ', '')
@@ -174,7 +184,7 @@ if __name__ == '__main__':
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
 
-    print('Args in experiment:')
+    logger.info('Args in experiment:')
     print_args(args)
 
 
@@ -193,7 +203,7 @@ if __name__ == '__main__':
     # elif args.task_name == 'classification':
     #     from exp.exp_classification import Exp_Classification
     #     Exp = Exp_Classification
-    if args.task_name in ['zero_shot_forecast', 'zero_shot_predict']:
+    if args.task_name == 'zero_shot_forecast':
         from exp.exp_zero_shot_forecasting import Exp_Zero_Shot_Forecast
         Exp = Exp_Zero_Shot_Forecast
     # else:
@@ -232,10 +242,10 @@ if __name__ == '__main__':
                         + f'_expand{args.expand}_dc{args.d_conv}_nk{args.num_kernels}' \
                         + f'_tvdt{int(args.tv_dt)}_tvB{int(args.tv_B)}_tvC{int(args.tv_C)}_useD{int(args.use_D)}_{args.des}_{ii}'
 
-            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            logger.info(f'>>>>>>>start training : {setting}>>>>>>>>>>>>>>>>>>>>>>>>>>')
             exp.train(setting)
 
-            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            logger.info(f'>>>>>>>testing : {setting}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
             exp.test(setting)
             if args.use_gpu:
                 if args.gpu_type == 'mps':
@@ -243,7 +253,8 @@ if __name__ == '__main__':
                 elif args.gpu_type == 'cuda':
                     torch.cuda.empty_cache()
     else:
-        exp = Exp(args)  # set experiments
+        # set experiments
+        exp = Exp(args)
         ii = 0
         setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
             args.task_name,
@@ -264,7 +275,9 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des, ii)
+            args.des, 
+            ii
+        )
         
         # Override setting for specific model to ensure proper checkpoint naming and logging
         if args.model == 'MambaSingleLayer' and args.task_name == 'classification':
@@ -273,13 +286,15 @@ if __name__ == '__main__':
                     + f'_expand{args.expand}_dc{args.d_conv}_nk{args.num_kernels}' \
                     + f'_tvdt{args.tv_dt}_tvB{args.tv_B}_tvC{args.tv_C}_useD{int(args.use_D)}_{args.des}_{ii}'
 
-        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        if args.task_name == 'zero_shot_predict':
-            exp.predict(setting)
-        else:
+        logger.info(f'>>>>>>>testing : {setting}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+        if args.is_testing:
             exp.test(setting, test=1)
+        elif args.is_forecasting:
+            exp.forecast(setting)
+        
+        # clear GPU cache
         if args.use_gpu:
             if args.gpu_type == 'mps':
-                torch.backends.mps.empty_cache()
+                torch.mps.empty_cache()
             elif args.gpu_type == 'cuda':
                 torch.cuda.empty_cache()

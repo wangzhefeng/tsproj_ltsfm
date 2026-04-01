@@ -16,7 +16,7 @@ DEFAULT_REMOTE_CHECKPOINT = "thuml/sundial-base-128m"
 
 
 def _resolve_model_source(configs) -> str:
-    configured = getattr(configs, "checkpoints", None)
+    configured = getattr(configs, "pretrain_checkpoints", None)
     candidates = [configured, DEFAULT_LOCAL_CHECKPOINT]
     for candidate in candidates:
         if not candidate:
@@ -24,7 +24,7 @@ def _resolve_model_source(configs) -> str:
         candidate_path = Path(candidate)
         if candidate_path.is_dir() and (candidate_path / "config.json").exists():
             return str(candidate_path)
-    if configured and configured != "./checkpoints/":
+    if configured and configured != "./pretrain_checkpoints/":
         return configured
     return DEFAULT_REMOTE_CHECKPOINT
 

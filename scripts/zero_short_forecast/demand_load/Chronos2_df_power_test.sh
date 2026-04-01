@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+# export CUDA_VISIBLE_DEVICES=0
 
 
 model_name=Chronos2
@@ -8,7 +8,10 @@ pred_len=288
 
 python -u run.py \
   --task_name zero_shot_forecast \
+  --des 'DemandLoadTest' \
   --is_training 0 \
+  --is_testing 1 \
+  --is_forecasting 0 \
   --root_path ./dataset/demand_load/route_A/ \
   --data_path df_power.csv \
   --model_id df_power_test_$seq_len'_'$pred_len \
@@ -27,5 +30,8 @@ python -u run.py \
   --d_model 512 \
   --dropout 0.5 \
   --learning_rate 0.0001 \
-  --des 'DemandLoadTest' \
-  --itr 1
+  --itr 1 \
+  --pretrain_checkpoints ./pretrain_models/chronos-2 \
+  --checkpoints ./results/$model_name/pretrained_models/ \
+  --test_results ./results/$model_name/test_results/ \
+  --forecast_results ./results/$model_name/forecast_results/
