@@ -212,3 +212,4 @@ __marimo__/
 dataset/
 results/
 pretrain_models/
+logs/

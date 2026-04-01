@@ -144,14 +144,24 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         # np.save(Path(path).joinpath('preds.npy'), preds)
         # np.save(Path(path).joinpath('trues.npy'), trues)
     
-    def _pred_results_save(self, preds, preds_df, path):
+    def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None):
         """
         预测结果保存
         """
         if preds is not None:
             np.save(Path(path).joinpath("prediction.npy"), preds) 
+
+        if trues_df is not None:
+            trues_df.to_csv(path.joinpath('history.csv'), index=False, encoding="utf_8_sig")
+        
         if preds_df is not None:
-            preds_df.to_csv(Path(path).joinpath("prediction.csv"), encoding="utf_8_sig", index=False)
+            preds_df.to_csv(path.joinpath('forecast.csv'), index=False, encoding="utf_8_sig")
+        
+        with open(os.path.join(path, 'summary.txt'), 'w', encoding='utf-8') as summary_file:
+            summary_file.write(setting + '\n')
+            summary_file.write(f'prediction only: no ground truth available\n')
+            summary_file.write(f'history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n')
+            summary_file.write(f'forecast_target:{preds_df.columns[-1]}\n')
     
     def test(self, setting, test=0):
         """
@@ -303,39 +313,26 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
             pred_columns = pred_columns[-preds.shape[-1]:]
         # 历史数据表
         history_frame = pd.DataFrame(batch_x.detach().cpu().numpy()[0], columns=feature_names)
-        history_frame.insert(0, 'date', history_dates.astype(str))
-        history_frame.to_csv(os.path.join(pred_results_path, 'input_history.csv'), index=False)
+        # history_frame.insert(0, 'date', history_dates.astype(str))
+        history_frame.insert(0, 'date', history_dates)
         # 预测数据表
         forecast_frame = pd.DataFrame(preds, columns=pred_columns)
-        forecast_frame.insert(0, 'date', future_dates.astype(str))
-        forecast_frame.to_csv(os.path.join(pred_results_path, 'forecast.csv'), index=False)
-        # 预测结果
-        np.save(os.path.join(pred_results_path, 'forecast.npy'), preds)
-        # 预测数据可视化
-        history_target = history_frame[pred_columns[-1]].to_numpy()
-        forecast_target = forecast_frame[pred_columns[-1]].to_numpy()
-        combined = np.concatenate((history_target, forecast_target), axis=0)
-        visual(combined, None, os.path.join(pred_results_path, 'forecast.pdf'))
-        # 预测结果汇总
-        with open(os.path.join(pred_results_path, 'summary.txt'), 'w', encoding='utf-8') as summary_file:
-            summary_file.write(setting + '\n')
-            summary_file.write(f'prediction only: no ground truth available\n')
-            summary_file.write(f'history_points:{len(history_frame)}, forecast_points:{len(forecast_frame)}\n')
-            summary_file.write(f'forecast_target:{pred_columns[-1]}\n')
-        
+        # forecast_frame.insert(0, 'date', future_dates.astype(str))
+        forecast_frame.insert(0, 'date', future_dates)
         # 最终预测值保存
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._pred_results_save(preds, forecast_frame, pred_results_path)
+        self._pred_results_save(history_frame, forecast_frame,  preds, pred_results_path, setting)
         logger.info(pred_results_path)
         # 预测结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        trues_plot = history_target
-        preds_plot = combined
-        predict_result_visual(preds_plot, trues_plot, pred_results_path, iters=None)
+        history_target = history_frame[pred_columns[-1]].to_numpy()
+        forecast_target = forecast_frame[pred_columns[-1]].to_numpy()
+        forecast_target = np.concatenate((history_target, forecast_target), axis=0)
+        predict_result_visual(forecast_target, history_target, pred_results_path, iters=None)
         # log
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecasting Finished!")

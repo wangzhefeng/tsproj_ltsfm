@@ -144,8 +144,8 @@ def predict_result_visual(preds: np.array, trues: np.array, path: str, iters=Non
     # 画布
     plt.figure(figsize=(25, 8))
     # 创建折线图
-    plt.plot(trues, label='Trues', lw=1.7, )
     plt.plot(preds, label='Preds', lw=1.7, ls="-.")
+    plt.plot(trues, label='Trues', lw=1.7, )
     # 增强视觉效果
     plt.legend()
     plt.xlabel("Time")
