@@ -19,6 +19,7 @@ python -u run.py \
   --data custom \
   --features S \
   --target h_total_use \
+  --inverse \
   --freq 5min \
   --seq_len $seq_len \
   --label_len 96 \

@@ -11,11 +11,9 @@ import torch.nn as nn
 
 from exp.exp_basic import Exp_Basic
 from data_provider.data_factory import data_provider
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics_dl import metric
 from utils.losses import mape_loss, mase_loss, smape_loss
 from utils.plot_results import predict_result_visual
-from utils.augmentation import run_augmentation, run_augmentation_single
 from utils.model_memory import model_memory_size
 from utils.timefeatures import time_features
 from utils.log_util import logger
@@ -111,38 +109,69 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         
         return results_path
 
-    def _test_results_save(self, preds, trues, setting, path):
+    def _test_results_save(self, preds, trues, setting, path,
+                           stitched_preds=None,
+                           stitched_trues=None,
+                           overlap_counts=None,
+                           stitched_dates=None):
         """
         测试结果保存
         """
         # ------------------------------
-        # 计算测试结果评价指标
+        # 计算窗口级测试结果评价指标
         # ------------------------------
-        (r2, mse, rmse, mae, mape, mape_accuracy, mspe, dtw) = metric(
+        # 窗口级测试结果
+        (window_r2, window_mse, window_rmse, window_mae, window_mape, window_mape_accuracy, window_mspe, window_dtw) = metric(
             preds, trues, 
             use_dtw=self.args.use_dtw
         )
-        # summary_line = f"Test results: r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, mae:{mae:.4f} mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, mspe:{mspe:.4f}, dtw:{dtw:.4f}"
-        summary_line = f"Test results: r2:{r2:.4f}, mse:{mse:.4f}, rmse:{rmse:.4f}, mae:{mae:.4f} mape:{mape:.4f}, mape accuracy:{mape_accuracy:.4f}, mspe:{mspe:.4f}"
-        logger.info(summary_line)
-        with open(Path(path).joinpath("result_forecast.txt"), 'a', encoding='utf-8') as file:
+        window_summary_line = (
+            f"Window metrics: r2:{window_r2:.4f}, mse:{window_mse:.4f}, rmse:{window_rmse:.4f}, "
+            f"mae:{window_mae:.4f}, mape:{window_mape:.4f}, mape accuracy:{window_mape_accuracy:.4f}, "
+            f"mspe:{window_mspe:.4f}"
+        )
+        logger.info(window_summary_line)
+        # 缝合的级测试结果
+        stitched_summary_line = None
+        if stitched_preds is not None and stitched_trues is not None:
+            (stitched_r2, stitched_mse, stitched_rmse, stitched_mae, stitched_mape, stitched_mape_accuracy, stitched_mspe, stitched_dtw) = metric(
+                stitched_preds.reshape(-1, 1),
+                stitched_trues.reshape(-1, 1),
+                use_dtw=self.args.use_dtw
+            )
+            stitched_summary_line = (
+                f"Stitched metrics: r2:{stitched_r2:.4f}, mse:{stitched_mse:.4f}, rmse:{stitched_rmse:.4f}, "
+                f"mae:{stitched_mae:.4f}, mape:{stitched_mape:.4f}, mape accuracy:{stitched_mape_accuracy:.4f}, "
+                f"mspe:{stitched_mspe:.4f}"
+            )
+            logger.info(stitched_summary_line)
+
+        with open(Path(path).joinpath("result_forecast.txt"), 'w', encoding='utf-8') as file:
             file.write(setting + "  \n")
-            file.write(summary_line)
+            file.write(window_summary_line)
+            file.write('\n')
+            if stitched_summary_line is not None:
+                file.write(stitched_summary_line)
             file.write('\n')
             file.write('\n')
             file.close()
         # ------------------------------
         # 测试集上的预测值、真实值 
         # ------------------------------
-        test_results = pd.DataFrame({
-            "preds": preds.reshape(1, -1)[0], 
-            "trues": trues.reshape(1, -1)[0]
-        }, index=range(len(preds.reshape(1, -1)[0])))
+        # 无缝合的测试集上的预测值、真实值
+        flat_results = pd.DataFrame({
+            "preds": preds.reshape(-1),
+            "trues": trues.reshape(-1),
+        })
+        flat_results.to_csv(Path(path).joinpath("test_results_windows.csv"), index=False, encoding="utf-8")
+        # 缝合的测试集上的预测值、真实值
+        if stitched_preds is not None and stitched_trues is not None:
+            test_results = self._build_stitched_results_frame(stitched_preds, stitched_trues, overlap_counts, stitched_dates)
+        else:
+            test_results = flat_results.copy()
+            test_results.insert(0, "step", np.arange(len(test_results)))
         test_results.to_csv(Path(path).joinpath("test_results.csv"), index=False, encoding="utf-8")
-        logger.info(f"test_results: \n{test_results}")
-        # np.save(Path(path).joinpath('metrics.npy'), np.array([r2, mae, mse, rmse, mape, mape_accuracy, mspe, dtw]))
-        # np.save(Path(path).joinpath('preds.npy'), preds)
-        # np.save(Path(path).joinpath('trues.npy'), trues)
+        logger.info(f"test_results: \n{test_results.head()}")
     
     def _pred_results_save(self, trues_df, preds_df, preds=None, path="./", setting=None):
         """
@@ -250,30 +279,133 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         logger.info(f'test preds shape: {preds.shape} tures shape: {trues.shape}')
+        
+        stitched_preds, stitched_trues, overlap_counts = self._stitch_window_predictions(preds, trues)
+        stitched_dates = self._build_test_stitched_dates(test_data, len(stitched_preds))
+        
         # 测试结果收集
         logger.info(f"{40 * '-'}")
         logger.info(f"Test metric results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        self._test_results_save(preds.reshape(-1, 1), trues.reshape(-1, 1), setting, test_results_path)
+        self._test_results_save(
+            preds.reshape(-1, 1),
+            trues.reshape(-1, 1),
+            setting,
+            test_results_path,
+            stitched_preds=stitched_preds,
+            stitched_trues=stitched_trues,
+            overlap_counts=overlap_counts,
+            stitched_dates=stitched_dates,
+        )
         logger.info(test_results_path)
+        
         # 测试结果可视化
         logger.info(f"{40 * '-'}")
         logger.info(f"Test visual results have been saved in path:")
         logger.info(f"{40 * '-'}")
-        if self.args.features == 'M':
-            preds_flat = np.concatenate(preds, axis = 0)[:, -1]
-            trues_flat = np.concatenate(trues, axis = 0)[:, -1]
-        else:
-            preds_flat = np.concatenate(preds, axis = 0)
-            trues_flat = np.concatenate(trues, axis = 0)
+        target_dim = -1 if self.args.features in ['M', 'MS'] else 0
+        preds_flat = stitched_preds[:, target_dim]
+        trues_flat = stitched_trues[:, target_dim]
         predict_result_visual(preds_flat, trues_flat, path=test_results_path, iters=None) 
         logger.info(test_results_path)
+        
         # log
         logger.info(f"{40 * '-'}")
         logger.info(f"Testing Finished!")
         logger.info(f"{40 * '-'}")
 
         return
+
+    @staticmethod
+    def _stitch_window_predictions(preds: np.ndarray, trues: np.ndarray):
+        """
+        将滑动窗口预测结果还原成时间轴上的连续序列。
+
+        当前 Dataset_Custom / ETT 的 test loader 使用 stride=1，
+        直接 reshape/concatenate 会把重叠窗口重复拼接，导致时间顺序失真。
+        这里按时间位置对所有重叠预测取均值，恢复真实时间轴。
+        """
+        num_windows, pred_len, channels = preds.shape
+        stitched_len = num_windows + pred_len - 1
+
+        pred_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        true_sum = np.zeros((stitched_len, channels), dtype=np.float64)
+        counts = np.zeros((stitched_len, 1), dtype=np.int64)
+
+        for window_idx in range(num_windows):
+            start = window_idx
+            end = window_idx + pred_len
+            pred_sum[start:end] += preds[window_idx]
+            true_sum[start:end] += trues[window_idx]
+            counts[start:end] += 1
+
+        counts_safe = np.where(counts == 0, 1, counts)
+        stitched_preds = pred_sum / counts_safe
+        stitched_trues = true_sum / counts_safe
+
+        return stitched_preds.astype(np.float32), stitched_trues.astype(np.float32), counts.squeeze(-1)
+
+    @staticmethod
+    def _build_stitched_results_frame(stitched_preds: np.ndarray, stitched_trues: np.ndarray, overlap_counts=None, stitched_dates=None):
+        rows = {"step": np.arange(len(stitched_preds))}
+        if stitched_dates is not None:
+            rows["date"] = stitched_dates.astype(str)
+        if overlap_counts is not None:
+            rows["overlap_count"] = overlap_counts
+
+        if stitched_preds.shape[1] == 1:
+            rows["preds"] = stitched_preds[:, 0]
+            rows["trues"] = stitched_trues[:, 0]
+        else:
+            for channel_idx in range(stitched_preds.shape[1]):
+                rows[f"preds_{channel_idx}"] = stitched_preds[:, channel_idx]
+                rows[f"trues_{channel_idx}"] = stitched_trues[:, channel_idx]
+
+        return pd.DataFrame(rows)
+
+    def _build_test_stitched_dates(self, test_data, stitched_len: int):
+        """
+        构建测试集重建时间轴。
+
+        对于滑窗测试，单个窗口的预测区间从 `seq_len` 之后开始，
+        重建后的连续序列长度为 `len(test_data.data_x) - seq_len`。
+        """
+        file_path = Path(test_data.root_path).joinpath(test_data.data_path)
+        if not file_path.exists():
+            return None
+
+        df_raw = pd.read_csv(file_path)
+        if "date" not in df_raw.columns:
+            return None
+        df_raw["date"] = pd.to_datetime(df_raw["date"])
+
+        dataset_name = type(test_data).__name__
+        seq_len = test_data.seq_len
+
+        if dataset_name == "Dataset_ETT_hour":
+            border1s = [0, 12 * 30 * 24 - seq_len, 12 * 30 * 24 + 4 * 30 * 24 - seq_len]
+            border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        elif dataset_name == "Dataset_ETT_minute":
+            border1s = [0, 12 * 30 * 24 * 4 - seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - seq_len]
+            border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
+        elif dataset_name == "Dataset_Custom":
+            num_train = int(len(df_raw) * 0.7)
+            num_test = int(len(df_raw) * 0.2)
+            num_vali = len(df_raw) - num_train - num_test
+            border1s = [0, num_train - seq_len, len(df_raw) - num_test - seq_len]
+            border2s = [num_train, num_train + num_vali, len(df_raw)]
+        else:
+            return None
+
+        border1 = border1s[test_data.set_type]
+        border2 = border2s[test_data.set_type]
+        segment_dates = df_raw["date"].iloc[border1:border2].reset_index(drop=True)
+        stitched_dates = segment_dates.iloc[seq_len:seq_len + stitched_len].reset_index(drop=True)
+
+        if len(stitched_dates) != stitched_len:
+            return None
+
+        return stitched_dates.to_numpy()
 
     def forecast(self, setting):
         """
