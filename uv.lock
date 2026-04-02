@@ -2454,6 +2454,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tirex"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scikit-learn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/10/d2/7c3d5399f1481f450ae756e83f37311040d924529998b5c1b546312807aa/TIREX-0.0.2.tar.gz", hash = "sha256:25abc6fb4dd3bbac0f55cff16da4ee41258216ef2be4315bc6b800f5f95ab515", size = 3331, upload-time = "2022-02-21T11:19:07.806Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/ec/9d2fed0b1da62f363f0a6986c027351be7e9f9f1e08eae6d9765f2151d79/TIREX-0.0.2-py3-none-any.whl", hash = "sha256:879d7eb06da3f6baed77ea1e040fb318d0142b507a08ba7e537a2c9fed7efa8a", size = 3359, upload-time = "2022-02-21T11:19:06.332Z" },
+]
+
+[[package]]
 name = "tokenizers"
 version = "0.22.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2606,6 +2618,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "seaborn" },
     { name = "timesfm" },
+    { name = "tirex" },
     { name = "torch" },
     { name = "transformers" },
 ]
@@ -2622,6 +2635,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "timesfm", specifier = ">=1.3.0" },
+    { name = "tirex", specifier = ">=0.0.2" },
     { name = "torch", specifier = ">=2.10.0" },
     { name = "transformers", specifier = ">=4.41,<5" },
 ]

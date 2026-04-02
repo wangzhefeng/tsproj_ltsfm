@@ -12,12 +12,14 @@ python -u run.py \
   --is_training 0 \
   --root_path ./dataset/ETT-small/ \
   --data_path ETTh1.csv \
+  --time date \
   --model_id ETTh1_$seq_len'_'$pred_len \
   --model $model_name \
   --data ETTh1 \
   --features M \
   --seq_len $seq_len \
   --pred_len $pred_len \
+  --testing_step 1 \
   --seg_len 24 \
   --enc_in 7 \
   --d_model 512 \

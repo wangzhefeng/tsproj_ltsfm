@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
+    parser.add_argument('--time', type=str, default=None, help='time column name for local datasets')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
     
@@ -49,6 +50,15 @@ if __name__ == '__main__':
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4')
     parser.add_argument('--inverse', action='store_true', help='inverse output data', default=True)
+    parser.add_argument('--train_ratio', type=float, default=0.7, help='train split ratio for local datasets')
+    parser.add_argument('--test_ratio', type=float, default=0.2, help='test split ratio for local datasets')
+    parser.add_argument('--testing_step', type=int, default=1, help='sliding step for test windows')
+    parser.add_argument('--scale', action='store_true', default=True, help='enable standard scaling for local datasets')
+    parser.add_argument('--no_scale', action='store_false', dest='scale', help='disable standard scaling for local datasets')
+    parser.add_argument('--clean_nan_cols', action='store_true', default=True, help='drop columns containing NaN values')
+    parser.add_argument('--no_clean_nan_cols', action='store_false', dest='clean_nan_cols', help='keep columns containing NaN values')
+    parser.add_argument('--drop_constant_cols', action='store_true', default=True, help='drop zero-variance columns')
+    parser.add_argument('--no_drop_constant_cols', action='store_false', dest='drop_constant_cols', help='keep zero-variance columns')
 
     # inputation task
     parser.add_argument('--mask_rate', type=float, default=0.25, help='mask ratio')
@@ -287,10 +297,10 @@ if __name__ == '__main__':
                     + f'_tvdt{args.tv_dt}_tvB{args.tv_B}_tvC{args.tv_C}_useD{int(args.use_D)}_{args.des}_{ii}'
 
         logger.info(f'>>>>>>>testing : {setting}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        if args.is_testing:
-            exp.test(setting, test=1)
-        elif args.is_forecasting:
+        if not args.is_testing and args.is_forecasting:
             exp.forecast(setting)
+        elif args.is_testing:
+            exp.test(setting, test=1)
         
         # clear GPU cache
         if args.use_gpu:

@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 ROOT = str(Path.cwd())
@@ -15,7 +14,6 @@ from utils.metrics_dl import metric
 from utils.losses import mape_loss, mase_loss, smape_loss
 from utils.plot_results import predict_result_visual
 from utils.model_memory import model_memory_size
-from utils.timefeatures import time_features
 from utils.log_util import logger
 
 import warnings
@@ -186,11 +184,15 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         if preds_df is not None:
             preds_df.to_csv(path.joinpath('forecast.csv'), index=False, encoding="utf_8_sig")
         
-        with open(os.path.join(path, 'summary.txt'), 'w', encoding='utf-8') as summary_file:
+        with open(path.joinpath('summary.txt'), 'w', encoding='utf-8') as summary_file:
             summary_file.write(setting + '\n')
             summary_file.write(f'prediction only: no ground truth available\n')
             summary_file.write(f'history_points:{len(trues_df)}, forecast_points:{len(preds_df)}\n')
             summary_file.write(f'forecast_target:{preds_df.columns[-1]}\n')
+
+    @staticmethod
+    def _reshape_target_column(values: np.ndarray, target_idx: int) -> np.ndarray:
+        return values[:, :, target_idx:target_idx + 1]
     
     def test(self, setting, test=0):
         """
@@ -248,11 +250,14 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
                 batch_y = batch_y.detach().cpu().numpy()
                 # 输入输出逆转换
                 if test_data.scale and self.args.inverse:
-                    shape = batch_y.shape
-                    if outputs.shape[-1] != batch_y.shape[-1]:
-                        outputs = np.tile(outputs, [1, 1, int(batch_y.shape[-1] / outputs.shape[-1])])
-                    outputs = test_data.inverse_transform(outputs.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    batch_y = test_data.inverse_transform(batch_y.reshape(shape[0] * shape[1], -1)).reshape(shape)
+                    if self.args.features == 'MS':
+                        outputs = test_data.inverse_transform_target(outputs)
+                        batch_y = test_data.inverse_transform_target(
+                            self._reshape_target_column(batch_y, test_data.target_idx)
+                        )
+                    else:
+                        outputs = test_data.inverse_transform_full(outputs)
+                        batch_y = test_data.inverse_transform_full(batch_y)
                 # 预测值/真实值提取
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, :, f_dim:]
@@ -264,11 +269,10 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
                 trues.append(true)
 
                 # 预测数据可视化
-                if iters % 10 == 0:
+                if iters % 100 == 0:
                     inputs = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
-                        shape = inputs.shape
-                        inputs = test_data.inverse_transform(inputs.reshape(shape[0] * shape[1], -1)).reshape(shape)
+                        inputs = test_data.inverse_transform_history(inputs)
                     true_plot = np.concatenate((inputs[0, :, -1], true[0, :, -1]), axis=0)
                     pred_plot = np.concatenate((inputs[0, :, -1], pred[0, :, -1]), axis=0)
                     predict_result_visual(pred_plot, true_plot, test_results_path, iters=iters)
@@ -321,7 +325,7 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         """
         将滑动窗口预测结果还原成时间轴上的连续序列。
 
-        当前 Dataset_Custom / ETT 的 test loader 使用 stride=1，
+        当前统一数据层的 test loader 默认使用 stride=1，
         直接 reshape/concatenate 会把重叠窗口重复拼接，导致时间顺序失真。
         这里按时间位置对所有重叠预测取均值，恢复真实时间轴。
         """
@@ -366,41 +370,11 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
     def _build_test_stitched_dates(self, test_data, stitched_len: int):
         """
         构建测试集重建时间轴。
-
-        对于滑窗测试，单个窗口的预测区间从 `seq_len` 之后开始，
-        重建后的连续序列长度为 `len(test_data.data_x) - seq_len`。
         """
-        file_path = Path(test_data.root_path).joinpath(test_data.data_path)
-        if not file_path.exists():
+        segment_dates = getattr(test_data, "segment_dates", None)
+        if segment_dates is None:
             return None
-
-        df_raw = pd.read_csv(file_path)
-        if "date" not in df_raw.columns:
-            return None
-        df_raw["date"] = pd.to_datetime(df_raw["date"])
-
-        dataset_name = type(test_data).__name__
-        seq_len = test_data.seq_len
-
-        if dataset_name == "Dataset_ETT_hour":
-            border1s = [0, 12 * 30 * 24 - seq_len, 12 * 30 * 24 + 4 * 30 * 24 - seq_len]
-            border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
-        elif dataset_name == "Dataset_ETT_minute":
-            border1s = [0, 12 * 30 * 24 * 4 - seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - seq_len]
-            border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
-        elif dataset_name == "Dataset_Custom":
-            num_train = int(len(df_raw) * 0.7)
-            num_test = int(len(df_raw) * 0.2)
-            num_vali = len(df_raw) - num_train - num_test
-            border1s = [0, num_train - seq_len, len(df_raw) - num_test - seq_len]
-            border2s = [num_train, num_train + num_vali, len(df_raw)]
-        else:
-            return None
-
-        border1 = border1s[test_data.set_type]
-        border2 = border2s[test_data.set_type]
-        segment_dates = df_raw["date"].iloc[border1:border2].reset_index(drop=True)
-        stitched_dates = segment_dates.iloc[seq_len:seq_len + stitched_len].reset_index(drop=True)
+        stitched_dates = pd.Series(segment_dates).iloc[test_data.seq_len:test_data.seq_len + stitched_len].reset_index(drop=True)
 
         if len(stitched_dates) != stitched_len:
             return None
@@ -411,10 +385,14 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         """
         模型预测（推理）
         """
-        # 构建预测数据集
-        (batch_x, batch_x_mark, 
-         dec_inp, batch_y_mark, 
-         history_dates, future_dates, feature_names) = self._build_predict_inputs()
+        pred_data, pred_loader = self._get_data(flag='pred')
+        batch_x, batch_y, batch_x_mark, batch_y_mark = next(iter(pred_loader))
+        batch_x = batch_x.float().to(self.device)
+        batch_y = batch_y.float().to(self.device)
+        batch_x_mark = batch_x_mark.float().to(self.device)
+        batch_y_mark = batch_y_mark.float().to(self.device)
+        dec_zeros = torch.zeros((batch_x.shape[0], self.args.pred_len, batch_x.shape[-1]), dtype=batch_x.dtype, device=self.device)
+        dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_zeros], dim=1).float().to(self.device)
         # 模型预测结果保存地址
         logger.info(f"{40 * '-'}")
         logger.info(f"Forecast results will be saved in path:")
@@ -438,18 +416,27 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         outputs = outputs[:, -self.args.pred_len:, :]
         outputs = outputs[:, :, f_dim:]
         preds = outputs.detach().cpu().numpy()[0]
+        history_values = getattr(pred_data, "scaled_history_values", batch_x.detach().cpu().numpy()[0])
+        feature_names = getattr(pred_data, "feature_names", [self.args.target])
+        history_dates = pd.to_datetime(getattr(pred_data, "history_dates", np.arange(history_values.shape[0])))
+        future_dates = pd.to_datetime(getattr(pred_data, "future_dates", np.arange(preds.shape[0])))
+        pred_columns = getattr(pred_data, "pred_columns", feature_names[f_dim:] if f_dim != 0 else feature_names)
+
+        if pred_data.scale and self.args.inverse:
+            history_values = getattr(pred_data, "raw_history_values", pred_data.inverse_transform_history(history_values))
+            if self.args.features == 'MS':
+                preds = pred_data.inverse_transform_target(preds)
+            else:
+                preds = pred_data.inverse_transform_full(preds)
         
         # 预测结果保存
-        pred_columns = feature_names[f_dim:] if f_dim != 0 else feature_names
         if len(pred_columns) != preds.shape[-1]:
             pred_columns = pred_columns[-preds.shape[-1]:]
         # 历史数据表
-        history_frame = pd.DataFrame(batch_x.detach().cpu().numpy()[0], columns=feature_names)
-        # history_frame.insert(0, 'date', history_dates.astype(str))
+        history_frame = pd.DataFrame(history_values, columns=feature_names)
         history_frame.insert(0, 'date', history_dates)
         # 预测数据表
         forecast_frame = pd.DataFrame(preds, columns=pred_columns)
-        # forecast_frame.insert(0, 'date', future_dates.astype(str))
         forecast_frame.insert(0, 'date', future_dates)
         # 最终预测值保存
         logger.info(f"{40 * '-'}")
@@ -471,75 +458,3 @@ class Exp_Zero_Shot_Forecast(Exp_Basic):
         logger.info(f"{40 * '-'}")
         
         return
-
-    def _build_predict_inputs(self):
-        # data read
-        # ------------------------------
-        file_path = os.path.join(self.args.root_path, self.args.data_path)
-        df_raw = pd.read_csv(file_path)
-        df_raw['date'] = pd.to_datetime(df_raw['date'])
-        # data reorder
-        # ------------------------------
-        cols = list(df_raw.columns)
-        cols.remove('date')
-        if self.args.target in cols:
-            cols.remove(self.args.target)
-        ordered_cols = ['date'] + cols + [self.args.target]
-        df_raw = df_raw[ordered_cols]
-        # data split
-        # ------------------------------
-        if self.args.features in ['M', 'MS']:
-            feature_cols = df_raw.columns[1:]
-            df_data = df_raw[feature_cols]
-        else:
-            feature_cols = [self.args.target]
-            df_data = df_raw[[self.args.target]]
-
-        if len(df_data) < self.args.seq_len:
-            raise ValueError(f'not enough rows for prediction: need at least seq_len={self.args.seq_len}, got {len(df_data)}')
-        # ------------------------------
-        # history data
-        history_values = df_data.iloc[-self.args.seq_len:].values.astype(np.float32)
-        history_dates = df_raw['date'].iloc[-self.args.seq_len:].to_numpy()
-
-        # future features
-        future_dates = pd.date_range(start=df_raw['date'].iloc[-1], periods=self.args.pred_len + 1, freq=self.args.freq)[1:].to_numpy()
-        label_len = max(int(self.args.label_len), 0)
-        label_dates = pd.to_datetime(history_dates[-label_len:]) if label_len > 0 else pd.to_datetime([])
-        decoder_dates = np.concatenate([label_dates.to_numpy(), future_dates], axis=0) if label_len > 0 else future_dates
-
-        # time features
-        # ------------------------------
-        if self.args.embed != 'timeF':
-            history_stamp = self._build_calendar_features(pd.to_datetime(history_dates))
-            decoder_stamp = self._build_calendar_features(pd.to_datetime(decoder_dates))
-        else:
-            history_stamp = time_features(pd.to_datetime(history_dates), freq=self.args.freq).transpose(1, 0)
-            decoder_stamp = time_features(pd.to_datetime(decoder_dates), freq=self.args.freq).transpose(1, 0)
-        
-        # model inputs
-        # ------------------------------
-        batch_x = torch.from_numpy(history_values).unsqueeze(0).float().to(self.device)
-        batch_x_mark = torch.from_numpy(history_stamp.astype(np.float32)).unsqueeze(0).float().to(self.device)
-        batch_y_mark = torch.from_numpy(decoder_stamp.astype(np.float32)).unsqueeze(0).float().to(self.device)
-
-        if label_len > 0:
-            label_context = history_values[-label_len:]
-        else:
-            label_context = np.zeros((0, history_values.shape[1]), dtype=np.float32)
-        future_zeros = np.zeros((self.args.pred_len, history_values.shape[1]), dtype=np.float32)
-        dec_inp = np.concatenate([label_context, future_zeros], axis=0)
-        dec_inp = torch.from_numpy(dec_inp).unsqueeze(0).float().to(self.device)
-
-        return (batch_x, batch_x_mark, dec_inp, batch_y_mark, history_dates, future_dates, list(feature_cols))
-
-    @staticmethod
-    def _build_calendar_features(dates):
-        df_stamp = pd.DataFrame({'date': pd.to_datetime(dates)})
-        df_stamp['month'] = df_stamp.date.apply(lambda row: row.month)
-        df_stamp['day'] = df_stamp.date.apply(lambda row: row.day)
-        df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday())
-        df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour)
-        if (df_stamp.date.dt.minute != 0).any():
-            df_stamp['minute'] = df_stamp.date.apply(lambda row: row.minute)
-        return df_stamp.drop(columns=['date']).values

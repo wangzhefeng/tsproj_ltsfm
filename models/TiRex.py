@@ -1,6 +1,37 @@
+from pathlib import Path
+
 import torch
 from torch import nn
-from tirex import load_model, ForecastModel
+
+
+DEFAULT_LOCAL_CHECKPOINT = "pretrain_models/TiRex"
+DEFAULT_REMOTE_CHECKPOINT = "NX-AI/TiRex"
+
+
+def _is_valid_checkpoint_dir(candidate_path: Path) -> bool:
+    expected_files = (
+        "config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "torch_model.ckpt",
+        "model.ckpt",
+        "tirex.onnx",
+    )
+    return any((candidate_path / file_name).exists() for file_name in expected_files)
+
+
+def _resolve_model_source(configs) -> str:
+    configured = getattr(configs, "pretrain_checkpoints", None)
+    candidates = [configured, DEFAULT_LOCAL_CHECKPOINT]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate_path = Path(candidate)
+        if candidate_path.is_dir() and _is_valid_checkpoint_dir(candidate_path):
+            return str(candidate_path)
+    if configured and configured != "./pretrain_checkpoints/":
+        return configured
+    return DEFAULT_REMOTE_CHECKPOINT
 
 
 class Model(nn.Module):
@@ -10,7 +41,22 @@ class Model(nn.Module):
         stride: int, stride for patch_embedding
         """
         super().__init__()
-        self.model = load_model("NX-AI/TiRex")
+        try:
+            from tirex import load_model
+        except ImportError as exc:
+            raise ImportError(
+                "TiRex requires an inference package exposing `tirex.load_model`, but the current environment "
+                "does not provide it. Please install `tirex-ts` and place the "
+                "checkpoint under `pretrain_models/TiRex` if you want local loading."
+            ) from exc
+
+        if load_model is None:
+            raise ImportError(
+                "Current `tirex` package does not expose `load_model`. The installed package appears incompatible "
+                "with the TiRex forecasting wrapper in this project."
+            )
+
+        self.model = load_model(_resolve_model_source(configs))
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len

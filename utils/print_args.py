@@ -7,8 +7,8 @@ def print_args(args):
     print("\033[1m" + "Data Loader" + "\033[0m")
     print(f'  {"Data:":<20}{args.data:<20}{"Root Path:":<20}{args.root_path:<20}')
     print(f'  {"Data Path:":<20}{args.data_path:<20}{"Features:":<20}{args.features:<20}')
-    print(f'  {"Target:":<20}{args.target:<20}{"Freq:":<20}{args.freq:<20}')
-    print(f'  {"Checkpoints:":<20}{args.checkpoints:<20}')
+    print(f'  {"Target:":<20}{args.target:<20}{"Time Col:":<20}{str(args.time):<20}')
+    print(f'  {"Freq:":<20}{args.freq:<20}{"Checkpoints:":<20}{args.checkpoints:<20}')
     print()
 
     if args.task_name in ['long_term_forecast', 'short_term_forecast', 'zero_shot_forecast']:
@@ -45,6 +45,9 @@ def print_args(args):
     print(f'  {"Patience:":<20}{args.patience:<20}{"Learning Rate:":<20}{args.learning_rate:<20}')
     print(f'  {"Des:":<20}{args.des:<20}{"Loss:":<20}{args.loss:<20}')
     print(f'  {"Lradj:":<20}{args.lradj:<20}{"Use Amp:":<20}{args.use_amp:<20}')
+    print(f'  {"Train Ratio:":<20}{args.train_ratio:<20}{"Test Ratio:":<20}{args.test_ratio:<20}')
+    print(f'  {"Testing Step:":<20}{args.testing_step:<20}{"Scale:":<20}{args.scale:<20}')
+    print(f'  {"Clean NaN Cols:":<20}{args.clean_nan_cols:<20}{"Drop Const Cols:":<20}{args.drop_constant_cols:<20}')
     print()
 
     print("\033[1m" + "GPU" + "\033[0m")
