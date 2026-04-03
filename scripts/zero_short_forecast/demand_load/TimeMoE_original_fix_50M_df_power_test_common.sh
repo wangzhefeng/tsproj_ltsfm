@@ -1,7 +1,7 @@
 # export CUDA_VISIBLE_DEVICES=0
 
 
-model_name=TimeMoE_original_fix
+model_name=TimeMoE_original_fix_50M
 seq_len=512
 pred_len=288
 

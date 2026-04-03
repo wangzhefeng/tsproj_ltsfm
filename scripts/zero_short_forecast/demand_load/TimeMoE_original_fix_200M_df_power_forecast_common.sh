@@ -1,26 +1,26 @@
 # export CUDA_VISIBLE_DEVICES=0
 
 
-model_name=Moirai
+model_name=TimeMoE_original_fix_200M
 seq_len=512
 pred_len=288
+PYTHON_BIN="${PYTHON_BIN:-./.venv/bin/python}"
 
 
-python -u run.py \
+$PYTHON_BIN -u run.py \
   --task_name zero_shot_forecast \
-  --des 'DemandLoadTestOptim' \
+  --des 'DemandLoadForecastCommon' \
   --is_training 0 \
-  --is_testing 1 \
-  --is_forecasting 0 \
+  --is_testing 0 \
+  --is_forecasting 1 \
   --root_path ./dataset/demand_load/route_A/ \
   --data_path df_power.csv \
   --time date \
-  --model_id df_power_test_optim_$seq_len'_'$pred_len \
+  --model_id df_power_forecast_common_$seq_len'_'$pred_len \
   --model $model_name \
   --data custom \
   --features S \
   --target h_total_use \
-  --inverse \
   --freq 5min \
   --seq_len $seq_len \
   --label_len 96 \
@@ -34,7 +34,7 @@ python -u run.py \
   --dropout 0.5 \
   --learning_rate 0.0001 \
   --itr 1 \
-  --pretrain_checkpoints ./pretrain_models/moirai-2.0-R-small \
+  --pretrain_checkpoints ./pretrain_models/TimeMoE-200M \
   --checkpoints ./results/$model_name/pretrained_models/ \
   --test_results ./results/$model_name/test_results/ \
   --forecast_results ./results/$model_name/forecast_results/

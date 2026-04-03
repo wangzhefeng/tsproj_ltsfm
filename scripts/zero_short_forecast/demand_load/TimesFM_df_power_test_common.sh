@@ -4,9 +4,10 @@
 model_name=TimesFM
 seq_len=512
 pred_len=288
+PYTHON_BIN="${PYTHON_BIN:-./.venv/bin/python}"
 
 
-python -u run.py \
+$PYTHON_BIN -u run.py \
   --task_name zero_shot_forecast \
   --des 'DemandLoadTestCommon' \
   --is_training 0 \

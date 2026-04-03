@@ -28,6 +28,12 @@ def _resolve_model_source(configs) -> str:
             continue
         candidate_path = Path(candidate)
         if candidate_path.is_dir() and _is_valid_checkpoint_dir(candidate_path):
+            checkpoint_path = candidate_path / "model.ckpt"
+            if checkpoint_path.exists():
+                return str(checkpoint_path)
+            checkpoint_path = candidate_path / "torch_model.ckpt"
+            if checkpoint_path.exists():
+                return str(checkpoint_path)
             return str(candidate_path)
     if configured and configured != "./pretrain_checkpoints/":
         return configured

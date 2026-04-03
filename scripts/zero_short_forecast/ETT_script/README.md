@@ -10,7 +10,7 @@ Current scripts:
 - `TiRex_ETTh1.sh`
 - `TimeMoE_ETTh1.sh`
 - `TimeMoE_benchmark_ETTh1.sh`
-- `TimeMoE_original_fix_ETTh1.sh`
+- `TimeMoE_original_fix_50M_ETTh1.sh`
 - `TimesFM_ETTh1.sh`
 
 Additional context presets:
@@ -23,7 +23,7 @@ Stable 7-model family presets in this directory:
 - `Moirai_ETTh1_common.sh` / `Moirai_ETTh1_optim.sh`
 - `Sundial_original_fix_ETTh1_common.sh` / `Sundial_original_fix_ETTh1_optim.sh`
 - `TiRex_ETTh1_common.sh` / `TiRex_ETTh1_optim.sh`
-- `TimeMoE_original_fix_ETTh1_common.sh` / `TimeMoE_original_fix_ETTh1_optim.sh`
+- `TimeMoE_original_fix_50M_ETTh1_common.sh` / `TimeMoE_original_fix_50M_ETTh1_optim.sh`
 - `TimesFM_ETTh1_common.sh` / `TimesFM_ETTh1_optim.sh`
 
 Forecast presets:
@@ -32,7 +32,7 @@ Forecast presets:
 - `Moirai_ETTh1_forecast_common.sh` / `Moirai_ETTh1_forecast_optim.sh`
 - `Sundial_original_fix_ETTh1_forecast_common.sh` / `Sundial_original_fix_ETTh1_forecast_optim.sh`
 - `TiRex_ETTh1_forecast_common.sh` / `TiRex_ETTh1_forecast_optim.sh`
-- `TimeMoE_original_fix_ETTh1_forecast_common.sh` / `TimeMoE_original_fix_ETTh1_forecast_optim.sh`
+- `TimeMoE_original_fix_50M_ETTh1_forecast_common.sh` / `TimeMoE_original_fix_50M_ETTh1_forecast_optim.sh`
 - `TimesFM_ETTh1_forecast_common.sh` / `TimesFM_ETTh1_forecast_optim.sh`
 
 Each script keeps the original flat `python -u run.py ...` style and varies only by `model_name` and `seq_len`.

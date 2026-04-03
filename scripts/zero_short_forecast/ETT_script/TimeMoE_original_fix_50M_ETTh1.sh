@@ -1,10 +1,10 @@
 export CUDA_VISIBLE_DEVICES=0
 
 
-model_name=TimeMoE_original_fix
-seq_len=512
+model_name=TimeMoE_original_fix_50M
 
 
+seq_len=2048
 for pred_len in 96 192 336 720
 do
 python -u run.py \
@@ -13,7 +13,7 @@ python -u run.py \
   --root_path ./dataset/ETT-small/ \
   --data_path ETTh1.csv \
   --time date \
-  --model_id ETTh1_common_$seq_len'_'$pred_len \
+  --model_id ETTh1_$seq_len'_'$pred_len \
   --model $model_name \
   --data ETTh1 \
   --features M \
@@ -25,6 +25,6 @@ python -u run.py \
   --d_model 512 \
   --dropout 0.5 \
   --learning_rate 0.0001 \
-  --des 'CommonContext' \
+  --des 'Exp' \
   --itr 1
 done

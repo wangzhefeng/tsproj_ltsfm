@@ -1,39 +1,34 @@
 export CUDA_VISIBLE_DEVICES=0
 
 
-model_name=TimeMoE_original_fix
+model_name=TimeMoE_original_fix_50M
+seq_len=2048
+pred_len=96
 
-
-for pred_len in 96 192 336 720
-do
-if [ "$pred_len" -eq 96 ]; then
-  seq_len=512
-elif [ "$pred_len" -eq 192 ]; then
-  seq_len=1024
-elif [ "$pred_len" -eq 336 ]; then
-  seq_len=2048
-else
-  seq_len=3072
-fi
 
 python -u run.py \
   --task_name zero_shot_forecast \
   --is_training 0 \
+  --is_testing 0 \
+  --is_forecasting 1 \
   --root_path ./dataset/ETT-small/ \
   --data_path ETTh1.csv \
   --time date \
-  --model_id ETTh1_optim_$seq_len'_'$pred_len \
+  --model_id ETTh1_forecast_optim_$seq_len'_'$pred_len \
   --model $model_name \
   --data ETTh1 \
   --features M \
   --seq_len $seq_len \
+  --label_len 48 \
   --pred_len $pred_len \
   --testing_step 1 \
   --seg_len 24 \
   --enc_in 7 \
+  --dec_in 7 \
+  --c_out 7 \
   --d_model 512 \
   --dropout 0.5 \
   --learning_rate 0.0001 \
-  --des 'OptimContext' \
-  --itr 1
-done
+  --des 'OptimForecast' \
+  --itr 1 \
+  --pretrain_checkpoints ./pretrain_models/TimeMoE-50M

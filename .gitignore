@@ -213,3 +213,4 @@ dataset/
 results/
 pretrain_models/
 logs/
+.qwen/

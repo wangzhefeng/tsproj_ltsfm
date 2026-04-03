@@ -32,7 +32,9 @@ def _resolve_device(configs) -> str:
         if getattr(configs, "gpu_type", "cuda") == "cuda" and torch.cuda.is_available():
             return "cuda"
         if getattr(configs, "gpu_type", "") == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
+            # uni2ts/Moirai uses float64 internally in the scaler path.
+            # MPS does not support float64, so this wrapper must run on CPU on macOS.
+            return "cpu"
     return "cpu"
 
 class Model(nn.Module):
@@ -52,6 +54,7 @@ class Model(nn.Module):
             ) from exc
 
         device = _resolve_device(configs)
+        self.runtime_device = torch.device(device)
         self.model = Moirai2Forecast(
             module=Moirai2Module.from_pretrained(
                 _resolve_model_source(configs),
@@ -61,11 +64,25 @@ class Model(nn.Module):
             target_dim=1,
             feat_dynamic_real_dim=0,
             past_feat_dynamic_real_dim=0,
-        ).to(device)
+        ).to(self.runtime_device)
 
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
+
+    def to(self, *args, **kwargs):
+        target_device = None
+        if args:
+            target_device = args[0]
+        elif "device" in kwargs:
+            target_device = kwargs["device"]
+
+        if target_device is not None:
+            target_device = torch.device(target_device)
+            if target_device.type == "mps" and self.runtime_device.type == "cpu":
+                return super().to(self.runtime_device)
+
+        return super().to(*args, **kwargs)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         outputs = []
