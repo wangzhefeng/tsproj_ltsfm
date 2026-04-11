@@ -48,17 +48,18 @@ class Model(nn.Module):
         """
         super().__init__()
         try:
-            from tirex import load_model
+            from tirex.base import load_model
+            import tirex.models.tirex  # noqa: F401
         except ImportError as exc:
             raise ImportError(
-                "TiRex requires an inference package exposing `tirex.load_model`, but the current environment "
+                "TiRex requires an inference package exposing `tirex.base.load_model`, but the current environment "
                 "does not provide it. Please install `tirex-ts` and place the "
                 "checkpoint under `pretrain_models/TiRex` if you want local loading."
             ) from exc
 
         if load_model is None:
             raise ImportError(
-                "Current `tirex` package does not expose `load_model`. The installed package appears incompatible "
+                "Current `tirex` package does not expose a compatible `load_model`. The installed package appears incompatible "
                 "with the TiRex forecasting wrapper in this project."
             )
 

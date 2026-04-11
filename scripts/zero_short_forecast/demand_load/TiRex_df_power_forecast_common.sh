@@ -5,9 +5,22 @@ model_name=TiRex
 seq_len=512
 pred_len=288
 PYTHON_BIN="${PYTHON_BIN:-./.venv/bin/python}"
+LIBOMP_DIR="/opt/homebrew/opt/libomp/lib"
 
+run_python() {
+  if [ "$(uname -s)" = "Darwin" ] && [ -d "$LIBOMP_DIR" ]; then
+    DYLD_LIBRARY_PATH_VALUE="$LIBOMP_DIR"
+    if [ -n "${DYLD_LIBRARY_PATH:-}" ]; then
+      DYLD_LIBRARY_PATH_VALUE="$DYLD_LIBRARY_PATH_VALUE:$DYLD_LIBRARY_PATH"
+    fi
+    env DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH_VALUE" "$PYTHON_BIN" "$@"
+    return
+  fi
 
-$PYTHON_BIN -u run.py \
+  "$PYTHON_BIN" "$@"
+}
+
+run_python -u run.py \
   --task_name zero_shot_forecast \
   --des 'DemandLoadForecastCommon' \
   --is_training 0 \
